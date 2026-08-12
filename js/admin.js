@@ -1,6 +1,6 @@
 // Admin portal — users, handler links, vehicles, settings, logging
 const me = requireLogin('admin');
-let USERS = [], VEHICLES = [];
+let USERS = [], VEHICLES = [], VCLASSES = [];
 const LEVEL_BADGE = { info: 'badge-neutral', warn: 'badge-pending', error: 'badge-no' };
 
 // ── View switching (Dashboard / Settings) ───────────────────────
@@ -44,11 +44,86 @@ async function refresh() {
   document.getElementById('link-rider').innerHTML = rs.map(r => `<option value="${r.id}">${esc(r.full_name)}</option>`).join('');
 
   document.getElementById('vehicles').innerHTML = VEHICLES.map(v => `
-    <tr><td><b>${esc(v.label)}</b> <span class="small muted">${esc(v.color_desc || '')}</span></td>
+    <tr><td style="display:flex;align-items:center;gap:9px">
+          <img src="${esc(v.photo_url || classPhoto(v.class) || '')}" onerror="this.style.visibility='hidden'"
+               style="width:34px;height:34px;border-radius:8px;object-fit:cover;background:var(--surface3);flex-shrink:0" />
+          <div><b>${esc(v.label)}</b> <span class="small muted">${esc(v.color_desc || '')}</span></div></td>
         <td class="mono small">${esc(v.plate || '—')}</td><td>${v.capacity}</td>
-        <td><span class="badge badge-neutral">${esc(v.class)}</span></td>
+        <td><span class="badge badge-neutral">${esc(classLabel(v.class))}</span></td>
         <td><span class="badge ${v.active ? 'badge-approved' : 'badge-no'}">${v.active ? 'active' : 'retired'}</span></td>
-        <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="toggleVehicle('${v.id}',${v.active})">${v.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('');
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="openPhotoModal('vehicle','${v.id}','${esc(v.label)}')" title="Vehicle photo"><i class="fa-solid fa-camera"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="toggleVehicle('${v.id}',${v.active})">${v.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('');
+}
+
+function classLabel(key) { return VCLASSES.find(c => c.key === key)?.label || key; }
+function classPhoto(key) { return VCLASSES.find(c => c.key === key)?.photo_url || null; }
+
+async function loadVehicleClasses() {
+  const { data } = await api('/vehicle-classes');
+  VCLASSES = data || [];
+  const sel = document.querySelector('[name=vclass]');
+  if (sel) sel.innerHTML = VCLASSES.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+  renderVehicleClasses();
+}
+
+function renderVehicleClasses() {
+  const el = document.getElementById('vclass-rows');
+  if (!el) return;
+  el.innerHTML = VCLASSES.length ? VCLASSES.map(c => `
+    <tr><td style="display:flex;align-items:center;gap:9px">
+          <img src="${esc(c.photo_url || '')}" onerror="this.style.visibility='hidden'"
+               style="width:34px;height:34px;border-radius:8px;object-fit:cover;background:var(--surface3);flex-shrink:0" />
+          <div><b>${esc(c.label)}</b><div class="small mono muted">${esc(c.key)}</div></div></td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="openPhotoModal('class','${c.id}','${esc(c.label)}')" title="Class photo"><i class="fa-solid fa-camera"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="toggleClassActive('${c.id}',${c.active})">${c.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('')
+    : '<tr><td colspan="2" class="small muted">No vehicle classes yet.</td></tr>';
+}
+
+async function createVehicleClass(ev) {
+  ev.preventDefault();
+  const f = ev.target;
+  const { error } = await api('/vehicle-classes', 'POST', { key: f.class_key.value, label: f.class_label.value });
+  if (error) return toastMsg('Could not add class', error);
+  toastMsg('Vehicle class added', f.class_label.value); f.reset(); loadVehicleClasses();
+}
+
+async function toggleClassActive(id, active) {
+  await api('/vehicle-classes/' + id, 'PATCH', { active: !active }); loadVehicleClasses();
+}
+
+// Upload-or-generate photo modal, shared by vehicle classes and individual
+// vehicles (same {mode,...} contract server-side, different route/table).
+function openPhotoModal(kind, id, label) {
+  const endpoint = kind === 'class' ? `/vehicle-classes/${id}/photo` : `/vehicles/${id}/photo`;
+  openModal(`Photo — ${label}`, `
+    <div class="form-group"><label class="form-label">Upload a photo</label>
+      <input class="form-input" type="file" name="photo_file" accept="image/*" /></div>
+    <div class="small muted" style="margin:2px 0 12px">— or —</div>
+    <div class="form-group"><label class="form-label">Generate with AI (describe the vehicle)</label>
+      <input class="form-input" name="photo_prompt" placeholder="e.g. white Chevrolet Suburban SUV" /></div>
+  `, async (f) => {
+    let body;
+    if (f.photo_file.files[0]) {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(f.photo_file.files[0]);
+      });
+      body = { mode: 'upload', data_url: dataUrl };
+    } else if (f.photo_prompt.value.trim()) {
+      body = { mode: 'generate', prompt: f.photo_prompt.value.trim() };
+    } else {
+      return toastMsg('Nothing to save', 'Choose a file or enter a description to generate one');
+    }
+    toastMsg('Saving photo…', 'This can take a few seconds for AI generation.');
+    const { error } = await api(endpoint, 'POST', body);
+    if (error) return toastMsg('Could not save photo', error);
+    toastMsg('Photo saved', label);
+    if (kind === 'class') loadVehicleClasses(); else refresh();
+  });
 }
 
 async function createUser(ev) {
@@ -161,7 +236,7 @@ async function loadSettingsView() {
     document.getElementById('s-updated').textContent = settings.updated_at
       ? `Last updated ${fmtWhen(settings.updated_at)}` : '';
   }
-  await Promise.all([loadAuditLogs(), loadAppLogs(null)]);
+  await Promise.all([loadAuditLogs(), loadAppLogs(null), loadVehicleClasses()]);
 }
 
 async function saveAppSettings(ev) {
@@ -220,6 +295,7 @@ async function loadAppLogs(level) {
 
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
+  loadVehicleClasses(); // populates the Add-vehicle class dropdown even before Settings is opened
   refresh();
   if (typeof initPushNotifications === 'function') initPushNotifications();
 })();

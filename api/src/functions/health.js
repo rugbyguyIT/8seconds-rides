@@ -22,6 +22,8 @@ app.http('health', {
         vapid: !!process.env.VAPID_PUBLIC_KEY && !!process.env.VAPID_PRIVATE_KEY,
         twilio: !!process.env.TWILIO_ACCOUNT_SID,
         mapbox: !!process.env.MAPBOX_TOKEN,
+        vehicle_photo_storage: !!process.env.AZURE_STORAGE_CONNECTION_STRING,
+        vehicle_photo_ai: !!process.env.OPENAI_API_KEY,
         otp_test_mode: !!process.env.OTP_TEST_CODE,
         bootstrap_enabled: !!process.env.BOOTSTRAP_SECRET,
       },

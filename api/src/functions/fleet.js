@@ -2,7 +2,7 @@
 // 8 Seconds Ride Management — vehicles + venue library
 //   GET/POST /api/vehicles, PATCH /api/vehicles/{id}
 //   GET/POST /api/locations, PATCH /api/locations/{id}
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
 const { app } = require('@azure/functions');
 const { query } = require('../db');
 const { json, err, requireAuth, requireRole } = require('../middleware');
@@ -19,12 +19,12 @@ app.http('vehicles', {
     const { error, status } = await requireRole(request, 'dispatch', 'admin');
     if (error) return err(error, status);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
-    const { label, plate, capacity, vclass, color_desc } = body || {};
+    const { label, plate, capacity, vclass, color_desc, photo_url } = body || {};
     if (!label) return err('label required');
     const r = await query(
-      `INSERT INTO public.vehicles (label, plate, capacity, class, color_desc)
-       VALUES ($1,$2,COALESCE($3,6),COALESCE($4,'suv'),$5) RETURNING *`,
-      [label, plate || null, capacity, vclass, color_desc || null]);
+      `INSERT INTO public.vehicles (label, plate, capacity, class, color_desc, photo_url)
+       VALUES ($1,$2,COALESCE($3,6),COALESCE($4,'suv'),$5,$6) RETURNING *`,
+      [label, plate || null, capacity, vclass, color_desc || null, photo_url || null]);
     return json(r.rows[0], 201);
   },
 });
@@ -36,7 +36,7 @@ app.http('vehiclesUpdate', {
     if (error) return err(error, status);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const sets = []; const vals = []; let i = 1;
-    for (const f of ['label', 'plate', 'capacity', 'class', 'color_desc', 'active']) {
+    for (const f of ['label', 'plate', 'capacity', 'class', 'color_desc', 'active', 'photo_url']) {
       if (body[f] !== undefined) { sets.push(`${f} = $${i++}`); vals.push(body[f]); }
     }
     if (!sets.length) return err('Nothing to update');

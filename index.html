@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="classic">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>8 Seconds Ride Management — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Oswald:wght@400;500;600;700&family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#002E5D" />
+  <meta name="robots" content="noindex, nofollow" />
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-bg-overlay"></div>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon"><i class="fa-solid fa-truck-fast"></i></div>
+        <div class="auth-logo-name">8 SECONDS</div>
+        <div class="auth-logo-divider"></div>
+        <div class="auth-logo-app">Ride Management · Rodeo Houston</div>
+      </div>
+      <div id="login-error" class="auth-error" style="display:none"></div>
+
+      <div id="step-email">
+        <div class="auth-title">Welcome back</div>
+        <div class="auth-sub">Sign in to your account to continue</div>
+        <form onsubmit="handleIdentify(event)">
+          <input class="auth-input" type="email" id="email" placeholder="Email address" required autocomplete="email" />
+          <button type="submit" class="auth-btn" id="identify-btn">Continue</button>
+        </form>
+      </div>
+
+      <div id="step-otp" style="display:none">
+        <div class="auth-title">Check your phone</div>
+        <div class="auth-sub" id="otp-sub">We sent a 6-digit code to your mobile number.</div>
+        <form onsubmit="handleOtpVerify(event)">
+          <input class="auth-input" type="text" id="otp-code" placeholder="6-digit code" required
+                 inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}"
+                 style="letter-spacing:0.25em;font-size:1.5rem;text-align:center" />
+          <button type="submit" class="auth-btn">Verify code</button>
+        </form>
+        <div class="auth-footer" style="display:flex;gap:20px;justify-content:center">
+          <span class="auth-link" onclick="resendOtp()">Resend code</span>
+          <span class="auth-link" onclick="show('step-email')">Use a different email</span>
+        </div>
+      </div>
+
+      <div id="step-password" style="display:none">
+        <div class="auth-title">Welcome back</div>
+        <div class="auth-sub">Enter your password to continue</div>
+        <form onsubmit="handlePasswordLogin(event)">
+          <input class="auth-input" type="password" id="password" placeholder="Password" required autocomplete="current-password" />
+          <button type="submit" class="auth-btn">Sign in</button>
+        </form>
+        <div class="auth-footer" style="display:flex;gap:20px;justify-content:center">
+          <span class="auth-link" onclick="show('step-email')">Use a different email</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="classic">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>8 Seconds Rides — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Oswald:wght@400;500;600;700&family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#002E5D" />
+</head>
+<body>
+<div class="shell">
+  <nav class="topnav">
+    <div class="topnav-brand">
+      <div class="brand-mark"><i class="fa-solid fa-truck-fast"></i></div>
+      <div class="brand-word"><b>8 SECONDS</b><span>Ride Management</span></div>
+    </div>
+    <div class="topnav-links"></div>
+    <div class="topnav-user">
+      <div class="avatar" id="user-avatar"><i class="fa-solid fa-user"></i></div>
+      <div class="user-meta"><div class="user-name" id="user-name">Loading…</div><div class="user-role-label">Admin</div></div>
+      <button class="btn btn-sm" onclick="signOut()" style="margin-left:8px"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </nav>
+  <div class="content">
+    <div class="topbar">
+      <div><div><div class="page-title">Admin</div><div class="page-sub">Users, fleet, and system settings</div></div></div>
+    </div>
+    <div class="main-panel">
+<div class="bento-grid">
+  <div class="card bento-5">
+    <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>
+    <form onsubmit="createUser(event)">
+      <div class="form-group"><label class="form-label">Full name</label><input class="form-input" name="full_name" required /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" required /></div>
+        <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" placeholder="713 555 0100" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Role</label>
+          <select class="form-input" name="role" onchange="roleChanged(this)">
+            <option value="rider">Rider (VIP / end user)</option><option value="handler">Handler / EA</option>
+            <option value="driver">Driver</option><option value="dispatch">Dispatch (12 h session)</option>
+            <option value="admin">Admin (24 h session)</option><option value="display">Display (command room)</option>
+          </select></div>
+        <div class="form-group" id="class-row"><label class="form-label">Rider class</label>
+          <select class="form-input" name="uclass"><option value="vip">VIP</option><option value="executive">Executive</option>
+          <option value="performer">Performer</option><option value="guest">Guest</option></select></div>
+      </div>
+      <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
+        <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
+      <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
+        <input class="form-input" name="photo" placeholder="https://…" /></div>
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">SMS consent on file</span>
+        <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>
+      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-user-plus"></i> Create</button>
+    </form>
+    <div class="section-title" style="margin-top:22px"><i class="fa-solid fa-people-arrows"></i> Link handler → rider</div>
+    <form onsubmit="linkHandler(event)" class="form-row" style="align-items:end">
+      <div class="form-group"><label class="form-label">Handler</label><select class="form-input" id="link-handler"></select></div>
+      <div class="form-group"><label class="form-label">Rider</label><select class="form-input" id="link-rider"></select></div>
+      <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-link"></i> Link</button>
+    </form>
+    <div class="section-title" style="margin-top:22px"><i class="fa-solid fa-truck"></i> Add vehicle</div>
+    <form onsubmit="createVehicle(event)">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Label</label><input class="form-input" name="label" placeholder="Suburban U4" required /></div>
+        <div class="form-group"><label class="form-label">Plate</label><input class="form-input" name="plate" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Capacity</label><input class="form-input" type="number" name="capacity" value="6" /></div>
+        <div class="form-group"><label class="form-label">Class</label>
+          <select class="form-input" name="vclass"><option value="suv">SUV</option><option value="sedan">Sedan</option>
+          <option value="ada">ADA van</option><option value="cart">Cart (dormant)</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description (riders see this)</label><input class="form-input" name="color" placeholder="White Suburban" /></div>
+      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-plus"></i> Add vehicle</button>
+    </form>
+  </div>
+  <div class="bento-7">
+    <div class="card" style="padding:8px 14px 4px;overflow-x:auto">
+      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-users"></i> Users</div>
+      <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Mobile</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+      <tbody id="users"></tbody></table>
+    </div>
+    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
+      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-people-arrows"></i> Handler assignments</div>
+      <table class="tbl"><tbody id="links"></tbody></table>
+    </div>
+    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
+      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-truck"></i> Fleet</div>
+      <table class="tbl"><thead><tr><th>Vehicle</th><th>Plate</th><th>Cap</th><th>Class</th><th>Status</th><th style="text-align:right"></th></tr></thead>
+      <tbody id="vehicles"></tbody></table>
+    </div>
+    <div class="card card-sm" style="margin-top:16px">
+      <span class="small muted"><i class="fa-solid fa-inbox"></i> Dispatch console: <a href="/pages/dispatch.html">open the queue &amp; live board</a></span>
+    </div>
+  </div>
+</div>
+    </div>
+    <footer class="site-footer">8 Seconds Ride Management · Houston Livestock Show and Rodeo</footer>
+  </div>
+</div>
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/push.js"></script>
+<script src="/js/rides-ui.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

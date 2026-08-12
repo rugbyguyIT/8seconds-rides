@@ -29,9 +29,9 @@ async function refresh() {
         <td class="small mono">${esc(u.phone_mobile || '—')}</td>
         <td><span class="badge ${u.status === 'active' ? 'badge-approved' : 'badge-no'}">${esc(u.status)}</span></td>
         <td style="text-align:right;white-space:nowrap">
-          <button class="btn btn-sm" onclick="renameUser('${u.id}','${esc(u.first_name)}','${esc(u.last_name)}')" title="Edit name"><i class="fa-solid fa-pen"></i></button>
-          <button class="btn btn-sm" onclick="resetPw('${u.id}','${esc(u.full_name)}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
-          <button class="btn btn-sm" onclick="forceLogout('${u.id}','${esc(u.full_name)}')" title="Sign out everywhere"><i class="fa-solid fa-right-from-bracket"></i></button>
+          <button class="btn btn-sm" onclick="renameUser('${u.id}')" title="Edit name"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm" onclick="resetPw('${u.id}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
+          <button class="btn btn-sm" onclick="forceLogout('${u.id}')" title="Sign out everywhere"><i class="fa-solid fa-right-from-bracket"></i></button>
           <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}','${u.status}')">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button></td></tr>`).join('');
 
   document.getElementById('links').innerHTML = (links || []).filter(l => l.active).map(l =>
@@ -62,14 +62,44 @@ async function createUser(ev) {
   toastMsg('User created', `${body.first_name} ${body.last_name} (${body.role}) can now sign in.`);
   f.reset(); refresh();
 }
-async function renameUser(id, first, last) {
-  const nf = prompt('First name:', first);
-  if (nf === null) return;
-  const nl = prompt('Last name:', last);
-  if (nl === null) return;
-  const { error } = await api('/profiles/' + id, 'PATCH', { first_name: nf.trim(), last_name: nl.trim() });
-  if (error) return toastMsg('Could not rename', error);
-  toastMsg('Name updated', `${nf} ${nl}`); refresh();
+// Small inline modal — chained window.prompt() calls are unreliable
+// (browsers frequently suppress the second dialog when two fire back
+// to back), so name edits get a real two-field form instead.
+function openModal(title, fieldsHtml, onSave) {
+  document.getElementById('modal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,10,25,0.55);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div class="card" style="width:100%;max-width:360px;padding:20px">
+    <div class="section-title" style="margin-bottom:14px">${esc(title)}</div>
+    <form id="modal-form">${fieldsHtml}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button type="button" class="btn btn-sm" style="flex:1;justify-content:center" onclick="document.getElementById('modal-overlay').remove()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" style="flex:1;justify-content:center">Save</button>
+      </div>
+    </form>
+  </div>`;
+  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  document.getElementById('modal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await onSave(e.target);
+    document.getElementById('modal-overlay')?.remove();
+  });
+  overlay.querySelector('input')?.focus();
+}
+
+async function renameUser(id) {
+  const u = USERS.find(x => x.id === id);
+  if (!u) return;
+  openModal('Edit name', `
+    <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" value="${esc(u.first_name)}" required /></div>
+    <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" value="${esc(u.last_name)}" required /></div>
+  `, async (f) => {
+    const { error } = await api('/profiles/' + id, 'PATCH', { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim() });
+    if (error) return toastMsg('Could not rename', error);
+    toastMsg('Name updated', `${f.first_name.value} ${f.last_name.value}`); refresh();
+  });
 }
 async function createVehicle(ev) {
   ev.preventDefault();
@@ -88,16 +118,20 @@ async function linkHandler(ev) {
   toastMsg('Handler linked', 'They can now schedule for that rider.'); refresh();
 }
 async function unlink(id) { await api('/handler-assignments/' + id, 'DELETE'); refresh(); }
-async function resetPw(id, name) {
-  const pw = prompt(`New password for ${name} (dispatch/admin only):`);
+async function resetPw(id) {
+  const u = USERS.find(x => x.id === id);
+  if (!u) return;
+  const pw = prompt(`New password for ${u.full_name} (dispatch/admin only):`);
   if (!pw) return;
   const { error } = await api('/profiles/' + id, 'PATCH', { password: pw });
-  toastMsg(error ? 'Failed' : 'Password set', error || name);
+  toastMsg(error ? 'Failed' : 'Password set', error || u.full_name);
 }
-async function forceLogout(id, name) {
-  if (!confirm(`Sign ${name} out of every device?`)) return;
+async function forceLogout(id) {
+  const u = USERS.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`Sign ${u.full_name} out of every device?`)) return;
   await api('/profiles/' + id, 'PATCH', { force_logout: true });
-  toastMsg('Signed out everywhere', name);
+  toastMsg('Signed out everywhere', u.full_name);
 }
 async function toggleActive(id, status) {
   await api('/profiles/' + id, 'PATCH', { status: status === 'active' ? 'inactive' : 'active' });

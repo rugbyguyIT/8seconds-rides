@@ -21,6 +21,7 @@ app.http('health', {
         jwt: !!process.env.JWT_SECRET,
         vapid: !!process.env.VAPID_PUBLIC_KEY && !!process.env.VAPID_PRIVATE_KEY,
         twilio: !!process.env.TWILIO_ACCOUNT_SID,
+        mapbox: !!process.env.MAPBOX_TOKEN,
         otp_test_mode: !!process.env.OTP_TEST_CODE,
         bootstrap_enabled: !!process.env.BOOTSTRAP_SECRET,
       },

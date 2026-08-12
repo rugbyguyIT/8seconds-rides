@@ -200,7 +200,7 @@ function exportAuditCSV() {
   const csv = ['When,Name,Email,Action,IP,Detail', ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `8SecondsRides_Audit_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `8SecondRides_Audit_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click(); URL.revokeObjectURL(a.href);
   toastMsg('Audit log exported', 'CSV downloaded');
 }

@@ -33,6 +33,7 @@ app.http('ridesCreate', {
     if (!['rider', 'handler', 'dispatch', 'admin'].includes(user.role)) return err('Forbidden', 403);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const { enduser_id, pickup_location_id, dropoff_location_id, pickup_text, dropoff_text,
+            pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
             scheduled_at, party_size, ada_required, round_trip, notes } = body || {};
 
     let target = user.sub;
@@ -54,12 +55,15 @@ app.http('ridesCreate', {
     const cls = await query(`SELECT enduser_class FROM public.profiles WHERE id = $1`, [target]);
     const r = await query(
       `INSERT INTO public.rides (enduser_id, requested_by, pickup_location_id, dropoff_location_id,
-         pickup_text, dropoff_text, scheduled_at, party_size, ada_required, round_trip, notes, priority_class)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,1),COALESCE($9,FALSE),COALESCE($10,FALSE),$11,$12)
+         pickup_text, dropoff_text, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
+         scheduled_at, party_size, ada_required, round_trip, notes, priority_class)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12,1),COALESCE($13,FALSE),COALESCE($14,FALSE),$15,$16)
        RETURNING id`,
       [target, user.sub, pickup_location_id || null, dropoff_location_id || null,
-       pickup_text || null, dropoff_text || null, scheduled_at || null,
-       party_size, ada_required, round_trip, notes || null, cls.rows[0]?.enduser_class || null]);
+       pickup_text || null, dropoff_text || null,
+       pickup_location_id ? null : (pickup_lat ?? null), pickup_location_id ? null : (pickup_lng ?? null),
+       dropoff_location_id ? null : (dropoff_lat ?? null), dropoff_location_id ? null : (dropoff_lng ?? null),
+       scheduled_at || null, party_size, ada_required, round_trip, notes || null, cls.rows[0]?.enduser_class || null]);
     await emitRequested(r.rows[0].id, user);
     flushOutbox(25).catch(() => {}); // best-effort immediate delivery; cron sweeps the rest
     const full = await query(`${RIDE_SELECT} WHERE r.id = $1`, [r.rows[0].id]);

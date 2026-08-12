@@ -1,7 +1,7 @@
-// 8 Seconds Ride Management — Service Worker v1.9.32.34
+// 8 Second Rides — Service Worker
 // Network-first: always fetch fresh. Cache is offline-only fallback.
 // Bump CACHE_VERSION on every release to force all clients to update instantly.
-const CACHE_VERSION = 'rides-0.1.0';
+const CACHE_VERSION = 'rides-0.2.0';
 
 self.addEventListener('install', () => {
   self.skipWaiting(); // activate new SW immediately
@@ -20,7 +20,7 @@ self.addEventListener('push', e => {
   let data = {};
   try { data = e.data?.json() || {}; } catch (_) {}
 
-  const title   = data.title || '8 Seconds Ride Management';
+  const title   = data.title || '8 Second Rides';
   const options = {
     body:    data.body  || '',
     icon:    '/icons/icon-192.png',

@@ -13,9 +13,13 @@ function loginError(msg) {
   e.textContent = msg; e.style.display = 'block';
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 async function handleIdentify(ev) {
   ev.preventDefault();
-  _email = document.getElementById('email').value.trim().toLowerCase();
+  const raw = document.getElementById('email').value.trim();
+  if (!EMAIL_RE.test(raw)) return loginError('Please enter a valid email address.');
+  _email = raw.toLowerCase();
   const btn = document.getElementById('identify-btn'); btn.disabled = true; btn.textContent = 'Checking…';
   const { data, error } = await api('/auth/identify', 'POST', { email: _email });
   btn.disabled = false; btn.textContent = 'Continue';

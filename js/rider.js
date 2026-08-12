@@ -24,7 +24,9 @@ async function submitRequest(ev) {
   const f = ev.target;
   const body = {
     pickup_location_id: f.pickup.value || null, pickup_text: f.pickup.value ? null : f.pickup_text.value || null,
+    pickup_lat: f.pickup.value ? null : (f.pickup_lat.value || null), pickup_lng: f.pickup.value ? null : (f.pickup_lng.value || null),
     dropoff_location_id: f.dropoff.value || null, dropoff_text: f.dropoff.value ? null : f.dropoff_text.value || null,
+    dropoff_lat: f.dropoff.value ? null : (f.dropoff_lat.value || null), dropoff_lng: f.dropoff.value ? null : (f.dropoff_lng.value || null),
     scheduled_at: f.when.value ? new Date(f.when.value).toISOString() : null,
     party_size: parseInt(f.party.value, 10), round_trip: f.round_trip.checked,
     ada_required: f.ada.checked, notes: f.notes.value || null,
@@ -35,11 +37,31 @@ async function submitRequest(ev) {
   f.reset(); refresh();
 }
 
+// Picking a venue from the dropdown and typing a free-text address are
+// mutually exclusive — whichever the rider touches last wins, and the
+// other one clears so there's no ambiguity about which is submitted.
+function wireAddressField(selectName, textName, latName, lngName) {
+  const select = document.querySelector(`[name=${selectName}]`);
+  const text = document.querySelector(`[name=${textName}]`);
+  const lat = document.querySelector(`[name=${latName}]`);
+  const lng = document.querySelector(`[name=${lngName}]`);
+  select.addEventListener('change', () => {
+    if (select.value) { text.value = ''; lat.value = ''; lng.value = ''; }
+  });
+  attachAddressAutocomplete(text, {
+    latInput: lat, lngInput: lng,
+    onSelect: () => { select.value = ''; },
+  });
+  text.addEventListener('input', () => { if (text.value) select.value = ''; });
+}
+
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
   const { data: locs } = await api('/locations'); LOCS = locs || [];
   document.querySelector('[name=pickup]').innerHTML = locationOptions(LOCS, 'Choose a pickup point…');
   document.querySelector('[name=dropoff]').innerHTML = locationOptions(LOCS, 'Choose a destination…');
+  wireAddressField('pickup', 'pickup_text', 'pickup_lat', 'pickup_lng');
+  wireAddressField('dropoff', 'dropoff_text', 'dropoff_lat', 'dropoff_lng');
   refresh();
   setInterval(refresh, 15000);
   if (typeof initPushNotifications === 'function') initPushNotifications();

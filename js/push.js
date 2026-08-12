@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// 8 Seconds Ride Management — Push Notification subscription manager
+// 8 Second Rides — Push Notification subscription manager
 //
 // Call initPushNotifications() after login on any dashboard.
 // Silently skips if browser doesn't support push or user has
@@ -13,7 +13,7 @@ const PUSH_PROMPT_DELAY_MS = 5000;
 const PUSH_PROMPTED_KEY = 'rides_push_prompted';
 
 /**
- * Call once after a successful login on any portal page.
+ * Call once after a successful login on exec, admin, or planner pages.
  * Fetches the VAPID public key, then requests permission and subscribes.
  */
 async function initPushNotifications() {
@@ -78,7 +78,7 @@ function pushPermissionState() {
   return Notification.permission;
 }
 
-// ── Internal helpers ──────────────────────────────────
+// ── Internal helpers ──────────────────────────────────────────
 
 async function _requestAndSubscribe(reg) {
   // Request permission FIRST — iOS Safari only allows this inside the

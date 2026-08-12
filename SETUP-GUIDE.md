@@ -30,6 +30,17 @@ From Azure Cloud Shell or local psql (single quotes around the URL, 8 Seconds ru
 
 This creates every table and seeds the venue library (gates, clubs, lots, hotels, airports).
 
+**Already deployed rev 1 and adding names/settings/logging (rev 2)?** Run the follow-up
+migration once — it's additive and safe to re-run:
+
+    psql 'postgresql://ridesadmin:<PASSWORD>@8sec-rides-db.postgres.database.azure.com:5432/postgres?sslmode=require' \
+      -f api/migrations/002_settings_logging.sql
+
+This splits names into `first_name`/`last_name` (backfilled from existing `full_name` rows),
+adds the `app_logs` and `app_settings` tables, and upgrades `audit_logs` with IP/user-agent
+columns. A brand-new install run both migrations in order, 001 then 002 —
+`setup-azure.sh` already does this for you in one shot.
+
 ## 3. App settings (SWA → Settings → Environment variables)
 
 | Setting | Value | Required for |
@@ -43,14 +54,13 @@ This creates every table and seeds the venue library (gates, clubs, lots, hotels
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_MESSAGING_SERVICE_SID` | from Twilio (can reuse 8 Seconds') | real SMS (optional day 1) |
 
 GitHub repo secrets (Settings → Secrets → Actions): `APP_URL` = your SWA URL, `FLUSH_SECRET` = same
-value as above. That powers `.github/workflows/notification-flush.yml` (every 5 min) — copy that
-workflow file from the rev-1 zip (it couldn't be pushed via API; see README note).
+value as above. That powers `.github/workflows/notification-flush.yml` (every 5 min).
 
 ## 4. First admin (~1 min)
 
     curl -X POST https://<your-swa>.azurestaticapps.net/api/auth/bootstrap \
       -H "Content-Type: application/json" \
-      -d '{"bootstrap_secret":"<BOOTSTRAP_SECRET>","email":"rugbyguytx@gmail.com","password":"<pick-one>","full_name":"Kyle Sandoval"}'
+      -d '{"bootstrap_secret":"<BOOTSTRAP_SECRET>","email":"rugbyguytx@gmail.com","password":"<pick-one>","first_name":"Kyle","last_name":"Sandoval"}'
 
 Then **delete the `BOOTSTRAP_SECRET` app setting** — that permanently disables the endpoint.
 
@@ -69,6 +79,10 @@ Then **delete the `BOOTSTRAP_SECRET` app setting** — that permanently disables
    push/SMS rows (status `skipped` until VAPID/Twilio are configured — expected).
 6. Cancel-with-reason, driver alerts ("Vehicle issue"/"Heavy traffic"), no-show, and
    force-logout are all live — worth testing each once.
+7. Admin → **Settings** tab: org name/support contact/theme/pilot-mode banner, a live
+   **security audit log** (every login attempt, success or failure, with IP — CSV export),
+   and an **application/error log** viewer (client crashes, unhandled API exceptions, failed
+   push/SMS sends), filterable by level.
 
 ## 6. When you're ready for real notifications
 

@@ -6,6 +6,7 @@
 const { withTransaction, query } = require('./db');
 const { sendPushToProfile } = require('./push');
 const { sendSms } = require('./sms');
+const { logApp } = require('./middleware');
 
 async function flushOutbox(limit = 50) {
   const claimed = await withTransaction(async (client) => {
@@ -40,7 +41,11 @@ async function flushOutbox(limit = 50) {
       }
     } catch (e) { ok = false; }
     const status = ok === 'skip' ? 'skipped' : ok ? 'sent' : 'failed';
-    if (status === 'sent') sent++; else if (status === 'failed') failed++;
+    if (status === 'sent') sent++;
+    else if (status === 'failed') {
+      failed++;
+      await logApp('warn', 'notify.send_failed', `channel=${n.channel} recipient=${n.recipient_id} title="${n.title}"`);
+    }
     await query(
       `UPDATE public.notification_outbox
        SET status = CASE WHEN $2 = 'failed' AND attempts < 5 THEN 'pending' ELSE $2 END,

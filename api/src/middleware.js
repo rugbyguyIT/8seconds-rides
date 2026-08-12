@@ -75,4 +75,44 @@ function err(message, status = 400) {
   return json({ error: message }, status);
 }
 
-module.exports = { ROLES, SESSION_TTL, verifyToken, verifyTokenFull, requireAuth, requireRole, signSession, json, err, getSecret };
+// ── Security + application logging ─────────────────────────────
+// Azure SWA forwards the caller's real IP in x-forwarded-for.
+function getIp(request) {
+  const fwd = request.headers.get('x-forwarded-for') || '';
+  return fwd.split(',')[0].trim() || null;
+}
+function getUA(request) {
+  return request.headers.get('user-agent') || null;
+}
+
+// Security/audit trail: logins (success + failure), password resets,
+// force-logout, settings changes, bootstrap. Never throws — a logging
+// failure must never break the request it's logging.
+async function logAudit(request, { profile_id = null, email = null, full_name = null, action, detail = null }) {
+  try {
+    const ip = getIp(request);
+    await query(
+      `INSERT INTO public.audit_logs (profile_id, email, full_name, action, detail, ip, ip_address, user_agent)
+       VALUES ($1,$2,$3,$4,$5,$6,$6,$7)`,
+      [profile_id, email, full_name, action, detail, ip, getUA(request)]
+    );
+  } catch (e) { console.error('[audit] failed to write:', e.message); }
+}
+
+// Application/error log: business events + anything worth a paper trail
+// in Admin → Settings → Application Logs. level: 'info' | 'warn' | 'error'.
+async function logApp(level, event, detail, opts = {}) {
+  try {
+    await query(
+      `INSERT INTO public.app_logs (level, event, detail, profile_id, email, page_url)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [level, event, detail ? String(detail).slice(0, 4000) : null,
+       opts.profile_id || null, opts.email || null, opts.page_url || null]
+    );
+  } catch (e) { console.error('[applog] failed to write:', e.message); }
+}
+
+module.exports = {
+  ROLES, SESSION_TTL, verifyToken, verifyTokenFull, requireAuth, requireRole, signSession,
+  json, err, getSecret, getIp, getUA, logAudit, logApp,
+};

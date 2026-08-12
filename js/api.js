@@ -65,3 +65,26 @@ function toastMsg(title, body) {
 
 // Register service worker on every portal page
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// ── Client-side application/error logging ───────────────────────
+// Fire-and-forget: never blocks the UI, never throws. Shows up in
+// Admin → Settings → Application Logs. Only sent when signed in
+// (unauthenticated pages — the login screen — just console.error).
+function appLog(level, event, detail) {
+  if (!getToken()) { console[level === 'error' ? 'error' : 'log'](`[${event}]`, detail); return; }
+  fetch('/api/app-logs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-rides-token': getToken() },
+    body: JSON.stringify({ level, event, detail: String(detail).slice(0, 2000), page_url: location.pathname }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// Catch anything unhandled so real bugs land in the log instead of
+// silently failing in a rider's or driver's browser with no trace.
+window.addEventListener('error', (e) => {
+  appLog('error', 'client.exception', `${e.message} @ ${e.filename}:${e.lineno}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  appLog('error', 'client.unhandled_rejection', e.reason?.stack || e.reason?.message || String(e.reason));
+});

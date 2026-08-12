@@ -6,11 +6,13 @@
 //   POST /api/auth/otp/verify   email+code → token
 //   POST /api/auth/bootstrap    one-time first-admin setup  (BOOTSTRAP_SECRET)
 // Session lifetimes are role-based — see middleware.SESSION_TTL.
+// Every login attempt (success AND failure) is written to audit_logs
+// with IP + user-agent — see Admin → Settings → Security.
 // ─────────────────────────────────────────────────────────────
 const { app } = require('@azure/functions');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
-const { json, err, signSession } = require('../middleware');
+const { json, err, signSession, logAudit } = require('../middleware');
 const { sendSms, phoneHint } = require('../sms');
 
 const OTP_ROLES = ['rider', 'handler', 'driver'];
@@ -45,14 +47,19 @@ app.http('authLogin', {
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const { email, password } = body || {};
     if (!email || !password) return err('email and password are required');
-    const r = await query(`SELECT * FROM public.profiles WHERE email = $1 AND status = 'active'`,
-      [email.toLowerCase().trim()]);
+    const cleanEmail = email.toLowerCase().trim();
+    const r = await query(`SELECT * FROM public.profiles WHERE email = $1 AND status = 'active'`, [cleanEmail]);
     const p = r.rows[0];
-    if (!p || !PW_ROLES.includes(p.role) || !p.password_hash) return err('Invalid credentials', 401);
+    if (!p || !PW_ROLES.includes(p.role) || !p.password_hash) {
+      await logAudit(request, { email: cleanEmail, action: 'login_failed', detail: 'unknown account or wrong role' });
+      return err('Invalid credentials', 401);
+    }
     const ok = await bcrypt.compare(password, p.password_hash);
-    if (!ok) return err('Invalid credentials', 401);
-    await query(`INSERT INTO public.audit_logs (profile_id, email, action) VALUES ($1, $2, 'login')`,
-      [p.id, p.email]).catch(() => {});
+    if (!ok) {
+      await logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'login_failed', detail: 'bad password' });
+      return err('Invalid credentials', 401);
+    }
+    await logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'login' });
     return json({ token: signSession(p), profile: safeProfile(p), portal: PORTAL[p.role] });
   },
 });
@@ -91,24 +98,28 @@ app.http('authOtpVerify', {
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const { email, code } = body || {};
     if (!email || !code) return err('email and code are required');
-    const r = await query(`SELECT * FROM public.profiles WHERE email = $1 AND status = 'active'`,
-      [email.toLowerCase().trim()]);
+    const cleanEmail = email.toLowerCase().trim();
+    const r = await query(`SELECT * FROM public.profiles WHERE email = $1 AND status = 'active'`, [cleanEmail]);
     const p = r.rows[0];
-    if (!p || !OTP_ROLES.includes(p.role)) return err('Invalid code', 401);
+    if (!p || !OTP_ROLES.includes(p.role)) {
+      await logAudit(request, { email: cleanEmail, action: 'otp_failed', detail: 'unknown account or wrong role' });
+      return err('Invalid code', 401);
+    }
 
     const tr = await query(`SELECT * FROM public.otp_tokens WHERE profile_id = $1
                             ORDER BY created_at DESC LIMIT 1`, [p.id]);
     const t = tr.rows[0];
-    if (!t || t.used) return err('No active code. Please request a new one.', 401);
-    if (new Date(t.expires_at) < new Date()) return err('Code expired. Please request a new one.', 401);
-    if (t.attempts >= OTP_MAX_TRIES) return err('Too many attempts. Please request a new code.', 401);
+    const fail = (detail) => logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'otp_failed', detail });
+
+    if (!t || t.used) { await fail('no active code'); return err('No active code. Please request a new one.', 401); }
+    if (new Date(t.expires_at) < new Date()) { await fail('code expired'); return err('Code expired. Please request a new one.', 401); }
+    if (t.attempts >= OTP_MAX_TRIES) { await fail('too many attempts'); return err('Too many attempts. Please request a new code.', 401); }
     await query(`UPDATE public.otp_tokens SET attempts = attempts + 1 WHERE id = $1`, [t.id]);
 
     const valid = await bcrypt.compare(String(code).trim(), t.code_hash);
-    if (!valid) return err('Incorrect code.', 401);
+    if (!valid) { await fail('incorrect code'); return err('Incorrect code.', 401); }
     await query(`UPDATE public.otp_tokens SET used = TRUE WHERE id = $1`, [t.id]);
-    await query(`INSERT INTO public.audit_logs (profile_id, email, action) VALUES ($1, $2, 'login_otp')`,
-      [p.id, p.email]).catch(() => {});
+    await logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'login_otp' });
     return json({ token: signSession(p), profile: safeProfile(p), portal: PORTAL[p.role] });
   },
 });
@@ -121,16 +132,21 @@ app.http('authBootstrap', {
     const secret = process.env.BOOTSTRAP_SECRET;
     if (!secret) return err('Bootstrap disabled', 403);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
-    const { bootstrap_secret, email, password, full_name } = body || {};
+    const { bootstrap_secret, email, password, first_name, last_name } = body || {};
     if (bootstrap_secret !== secret) return err('Forbidden', 403);
-    if (!email || !password || !full_name) return err('email, password, full_name required');
+    if (!email || !password || !first_name || !last_name) return err('email, password, first_name, last_name required');
     const existing = await query(`SELECT 1 FROM public.profiles WHERE role = 'admin' LIMIT 1`);
     if (existing.rows.length) return err('An admin already exists — use Admin → Users instead', 409);
     const hash = await bcrypt.hash(password, 10);
+    const full_name = `${first_name.trim()} ${last_name.trim()}`.trim();
     const ins = await query(
-      `INSERT INTO public.profiles (email, full_name, role, status, password_hash)
-       VALUES ($1, $2, 'admin', 'active', $3) RETURNING id, email, full_name, role`,
-      [email.toLowerCase().trim(), full_name, hash]);
+      `INSERT INTO public.profiles (email, first_name, last_name, full_name, role, status, password_hash)
+       VALUES ($1, $2, $3, $4, 'admin', 'active', $5) RETURNING id, email, full_name, role`,
+      [email.toLowerCase().trim(), first_name.trim(), last_name.trim(), full_name, hash]);
+    await logAudit(request, {
+      profile_id: ins.rows[0].id, email: ins.rows[0].email, full_name,
+      action: 'bootstrap_admin_created',
+    });
     return json({ ok: true, profile: ins.rows[0] });
   },
 });

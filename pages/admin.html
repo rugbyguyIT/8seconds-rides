@@ -18,7 +18,10 @@
       <div class="brand-mark"><i class="fa-solid fa-truck-fast"></i></div>
       <div class="brand-word"><b>8 SECONDS</b><span>Ride Management</span></div>
     </div>
-    <div class="topnav-links"></div>
+    <div class="topnav-links">
+      <button class="nav-item active" id="nav-dashboard" onclick="setView('dashboard')"><i class="fa-solid fa-gauge"></i><span>Dashboard</span></button>
+      <button class="nav-item" id="nav-settings" onclick="setView('settings')"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+    </div>
     <div class="topnav-user">
       <div class="avatar" id="user-avatar"><i class="fa-solid fa-user"></i></div>
       <div class="user-meta"><div class="user-name" id="user-name">Loading…</div><div class="user-role-label">Admin</div></div>
@@ -27,14 +30,20 @@
   </nav>
   <div class="content">
     <div class="topbar">
-      <div><div><div class="page-title">Admin</div><div class="page-sub">Users, fleet, and system settings</div></div></div>
+      <div><div><div class="page-title" id="page-title">Admin</div><div class="page-sub" id="page-sub">Users, fleet, and system settings</div></div></div>
     </div>
     <div class="main-panel">
+
+<!-- ═══════════════════════ DASHBOARD VIEW ═══════════════════════ -->
+<div class="view active" id="view-dashboard">
 <div class="bento-grid">
   <div class="card bento-5">
     <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>
     <form onsubmit="createUser(event)">
-      <div class="form-group"><label class="form-label">Full name</label><input class="form-input" name="full_name" required /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" required /></div>
+        <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" required /></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" required /></div>
         <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" placeholder="713 555 0100" /></div>
@@ -100,6 +109,63 @@
     </div>
   </div>
 </div>
+</div>
+
+<!-- ═══════════════════════ SETTINGS VIEW ═══════════════════════ -->
+<div class="view" id="view-settings">
+<div class="bento-grid">
+  <div class="card bento-5">
+    <div class="section-title"><i class="fa-solid fa-sliders"></i> App settings</div>
+    <form onsubmit="saveAppSettings(event)">
+      <div class="form-group"><label class="form-label">Organization display name</label>
+        <input class="form-input" name="org_display_name" id="s-org-name" /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Support phone</label><input class="form-input" name="support_phone" id="s-support-phone" placeholder="713 555 0100" /></div>
+        <div class="form-group"><label class="form-label">Support email</label><input class="form-input" type="email" name="support_email" id="s-support-email" placeholder="rides@rodeohouston.com" /></div>
+      </div>
+      <div class="form-group"><label class="form-label">SMS sender label</label>
+        <input class="form-input" name="sms_sender_label" id="s-sms-label" placeholder="8Sec Rides" /></div>
+      <div class="form-group"><label class="form-label">App theme</label>
+        <select class="form-input" name="app_theme" id="s-app-theme">
+          <option value="classic">Classic Rodeo (glass, orange &amp; navy)</option>
+          <option value="editorial">Editorial (cream &amp; coral)</option>
+        </select></div>
+      <div class="toggle-row"><span class="small" style="font-weight:600">Pilot mode <span class="muted" style="font-weight:400">— internal testing banner shown to all users</span></span>
+        <label class="switch"><input type="checkbox" name="pilot_mode" id="s-pilot-mode"><span class="slider"></span></label></div>
+      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save settings</button>
+      <div class="small muted" id="s-updated" style="margin-top:8px"></div>
+    </form>
+  </div>
+
+  <div class="bento-7">
+    <div class="card" style="padding:8px 14px 4px;overflow-x:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 8px 0">
+        <div class="section-title" style="padding:0"><i class="fa-solid fa-shield-halved"></i> Security — login audit log</div>
+        <button class="btn btn-sm btn-primary" onclick="exportAuditCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+      </div>
+      <div class="small muted" style="padding:2px 8px 8px">Every sign-in attempt, success or failure — who, when, from what IP.</div>
+      <table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>IP</th><th>Detail</th></tr></thead>
+      <tbody id="audit-rows"></tbody></table>
+    </div>
+
+    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 8px 0;flex-wrap:wrap;gap:8px">
+        <div class="section-title" style="padding:0"><i class="fa-solid fa-bug"></i> Application &amp; error logs</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="loadAppLogs(null)">All</button>
+          <button class="btn btn-sm" onclick="loadAppLogs('info')">Info</button>
+          <button class="btn btn-sm" onclick="loadAppLogs('warn')">Warn</button>
+          <button class="btn btn-sm btn-danger" onclick="loadAppLogs('error')">Error</button>
+        </div>
+      </div>
+      <div class="small muted" style="padding:2px 8px 8px">Client crashes, unhandled API exceptions, and failed push/SMS sends.</div>
+      <table class="tbl"><thead><tr><th>When</th><th>Level</th><th>Event</th><th>Who</th><th>Detail</th></tr></thead>
+      <tbody id="applog-rows"></tbody></table>
+    </div>
+  </div>
+</div>
+</div>
+
     </div>
     <footer class="site-footer">8 Seconds Ride Management · Houston Livestock Show and Rodeo</footer>
   </div>

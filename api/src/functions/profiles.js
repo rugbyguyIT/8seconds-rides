@@ -7,13 +7,17 @@
 //   GET    /api/handler-assignments       (admin, or handler = own)
 //   POST   /api/handler-assignments       (admin)
 //   DELETE /api/handler-assignments/{id}  (admin)
+//
+// Names are stored as first_name + last_name (source of truth). full_name
+// is a denormalized "First Last" convenience column recomputed on every
+// create/update so every other screen can keep reading it unchanged.
 // ─────────────────────────────────────────────────────────────
 const { app } = require('@azure/functions');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
-const { json, err, requireAuth, requireRole, ROLES } = require('../middleware');
+const { json, err, requireAuth, requireRole, ROLES, logAudit } = require('../middleware');
 
-const SAFE = `id, email, full_name, phone_mobile, role, enduser_class, photo_url, status, sms_consent, created_at`;
+const SAFE = `id, email, first_name, last_name, full_name, phone_mobile, role, enduser_class, photo_url, status, sms_consent, created_at`;
 
 app.http('me', {
   methods: ['GET'], authLevel: 'anonymous', route: 'me',
@@ -32,8 +36,8 @@ app.http('profilesList', {
     if (error) return err(error, status);
     const role = new URL(request.url).searchParams.get('role');
     const r = role
-      ? await query(`SELECT ${SAFE} FROM public.profiles WHERE role = $1 ORDER BY full_name`, [role])
-      : await query(`SELECT ${SAFE} FROM public.profiles ORDER BY role, full_name`);
+      ? await query(`SELECT ${SAFE} FROM public.profiles WHERE role = $1 ORDER BY last_name, first_name`, [role])
+      : await query(`SELECT ${SAFE} FROM public.profiles ORDER BY role, last_name, first_name`);
     return json(r.rows);
   },
 });
@@ -44,18 +48,24 @@ app.http('profilesCreate', {
     const { user, error, status } = await requireRole(request, 'admin');
     if (error) return err(error, status);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
-    const { email, full_name, role, phone_mobile, enduser_class, photo_url, password, sms_consent } = body || {};
-    if (!email || !full_name || !role) return err('email, full_name, role required');
+    const { email, first_name, last_name, role, phone_mobile, enduser_class, photo_url, password, sms_consent } = body || {};
+    if (!email || !first_name || !last_name || !role) return err('email, first_name, last_name, role required');
     if (!ROLES.includes(role)) return err(`role must be one of: ${ROLES.join(', ')}`);
     if (['dispatch', 'admin'].includes(role) && !password) return err(`${role} accounts need a password`);
     if (['rider', 'handler', 'driver'].includes(role) && !phone_mobile) return err(`${role} accounts need a mobile phone (OTP sign-in)`);
     const hash = password ? await bcrypt.hash(password, 10) : null;
+    const fn = first_name.trim(), ln = last_name.trim();
+    const full_name = `${fn} ${ln}`.trim();
     try {
       const r = await query(
-        `INSERT INTO public.profiles (email, full_name, role, phone_mobile, enduser_class, photo_url, password_hash, sms_consent)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,FALSE)) RETURNING ${SAFE}`,
-        [email.toLowerCase().trim(), full_name, role, phone_mobile || null,
+        `INSERT INTO public.profiles (email, first_name, last_name, full_name, role, phone_mobile, enduser_class, photo_url, password_hash, sms_consent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,FALSE)) RETURNING ${SAFE}`,
+        [email.toLowerCase().trim(), fn, ln, full_name, role, phone_mobile || null,
          enduser_class || null, photo_url || null, hash, sms_consent]);
+      await logAudit(request, {
+        profile_id: user.sub, email: user.email, action: 'user_created',
+        detail: `created ${full_name} (${role}) <${email.toLowerCase().trim()}>`,
+      });
       return json(r.rows[0], 201);
     } catch (e) {
       if (e.code === '23505') return err('A user with that email already exists', 409);
@@ -72,15 +82,30 @@ app.http('profilesUpdate', {
     const id = request.params.id;
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const sets = []; const vals = []; let i = 1;
-    for (const f of ['full_name', 'phone_mobile', 'role', 'enduser_class', 'photo_url', 'status', 'sms_consent']) {
+    for (const f of ['phone_mobile', 'role', 'enduser_class', 'photo_url', 'status', 'sms_consent']) {
       if (body[f] !== undefined) { sets.push(`${f} = $${i++}`); vals.push(body[f]); }
     }
+
+    if (body.first_name !== undefined || body.last_name !== undefined) {
+      const cur = await query(`SELECT first_name, last_name FROM public.profiles WHERE id = $1`, [id]);
+      if (!cur.rows.length) return err('Not found', 404);
+      const fn = (body.first_name !== undefined ? body.first_name : cur.rows[0].first_name || '').trim();
+      const ln = (body.last_name !== undefined ? body.last_name : cur.rows[0].last_name || '').trim();
+      sets.push(`first_name = $${i++}`); vals.push(fn);
+      sets.push(`last_name = $${i++}`); vals.push(ln);
+      sets.push(`full_name = $${i++}`); vals.push(`${fn} ${ln}`.trim());
+    }
+
     if (body.password) { sets.push(`password_hash = $${i++}`); vals.push(await bcrypt.hash(body.password, 10)); }
     if (body.force_logout) sets.push(`token_version = token_version + 1`);
     if (!sets.length) return err('Nothing to update');
     vals.push(id);
     const r = await query(`UPDATE public.profiles SET ${sets.join(', ')} WHERE id = $${i} RETURNING ${SAFE}`, vals);
     if (!r.rows.length) return err('Not found', 404);
+    if (body.force_logout)
+      await logAudit(request, { profile_id: user.sub, email: user.email, action: 'force_logout', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
+    if (body.password)
+      await logAudit(request, { profile_id: user.sub, email: user.email, action: 'password_reset', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
     return json(r.rows[0]);
   },
 });

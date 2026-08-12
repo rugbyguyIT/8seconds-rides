@@ -2,7 +2,7 @@
    8 SECONDS RIDE MANAGEMENT — stylesheet (8 Seconds design system)
    Tokens + components lifted from 8secondsevents.com css/style.css
    Brand: Orange #EF7622 · Deep Navy #002E5D · Sky #eef2f9
-───────────────────────────────────────────────────────────── */
+──────────────────────────────────────────────────── */
 :root {
   --bg:#eef2f9; --surface:#ffffff; --surface2:#f5f7fb; --surface3:#e8edf5;
   --border:rgba(0,46,93,0.09); --border2:rgba(0,46,93,0.16);
@@ -72,7 +72,8 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .topnav-brand{display:flex;align-items:center;gap:11px;padding-right:20px;border-right:1px solid rgba(255,255,255,0.10);flex-shrink:0;height:100%}
 .brand-mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--orange),var(--orange2));
   display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Oswald',sans-serif;font-weight:700;font-size:17px;
-  box-shadow:0 2px 14px rgba(239,118,34,0.55);letter-spacing:.02em}
+  box-shadow:0 2px 14px rgba(239,118,34,0.55);letter-spacing:.02em;overflow:hidden}
+.brand-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .brand-word{display:flex;flex-direction:column;line-height:1.15}
 .brand-word b{font-family:'Oswald',sans-serif;font-weight:600;color:#fff;font-size:15px;letter-spacing:.05em}
 .brand-word span{font-size:9px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,0.45)}
@@ -290,6 +291,7 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
   border-radius:var(--r4);padding:44px;animation:fadeSlideUp .55s ease both}
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 .auth-logo{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:30px}
+.auth-logo-img{width:220px;height:auto;filter:drop-shadow(0 4px 20px rgba(239,118,34,0.50))}
 .auth-logo-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--orange),var(--orange2));border-radius:15px;display:flex;align-items:center;justify-content:center;
   font-size:24px;color:#fff;font-family:'Oswald',sans-serif;font-weight:700;box-shadow:0 4px 24px rgba(239,118,34,0.50)}
 .auth-logo-name{font-size:var(--fs-lg);font-weight:700;color:#fff;font-family:'Oswald',sans-serif;letter-spacing:.05em}

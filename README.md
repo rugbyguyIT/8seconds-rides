@@ -1,4 +1,4 @@
-# 8 Seconds Ride Management
+# 8 Second Rides
 
 Internal "VIP Uber" for the Houston Livestock Show and Rodeo — sibling app to
 [HLSR 8 Seconds](https://www.8secondsevents.com) and built on the same stack and conventions.
@@ -51,7 +51,3 @@ the mockup), ETA computation + 10/5-min proximity alerts, refresh-token rotation
 (`002` migration), Azure Web PubSub for push-based tracking. The stylesheet is the extracted
 8 Seconds design system; for pixel-exact parity you can drop in `css/style.css` from the
 `rugbyguyIT/hlsr` repo — class names are compatible.
-
-> **Note:** `.github/workflows/notification-flush.yml` and the PNG app icons could not be pushed
-> via the GitHub API (workflow permission / binary files) — copy both from the rev-1 zip delivered
-> in the Cowork session, or from `icons/README.md` instructions.

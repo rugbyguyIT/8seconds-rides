@@ -25,12 +25,13 @@
   const turnCount = 8;
   const turnAmount = (360 / turnCount) * TO_RAD;
   const turnChanceRange = 58;
-  // Tuned for a full-viewport canvas (the original demo's speed values
-  // were sized for a much smaller bounded box — unchanged, the same
-  // px/frame speed reads as a crawl once stretched across a whole
-  // 1920px+ screen). ~4x the original pace so it visibly moves.
-  const baseSpeed = 1.5;
-  const rangeSpeed = 2.5;
+  // A modest bump over the original demo's values (0.4/0.8) — 4x
+  // turned out way too fast once the draw fix below made the motion
+  // actually read as continuous lines instead of choppy dot-stamps
+  // (the choppiness was what made the original speed look slow, not
+  // the speed itself). This is closer to ~1.5x.
+  const baseSpeed = 0.6;
+  const rangeSpeed = 1.0;
   const baseTTL = 100;
   const rangeTTL = 260;
   const baseWidth = 2;

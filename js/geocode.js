@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
 // 8 Seconds Ride Management — address autocomplete widget
 // Attaches a debounced typeahead dropdown to a text input, backed by
 // the /api/geocode/suggest + /api/geocode/retrieve proxy (Mapbox
@@ -11,7 +11,7 @@
 //     lngInput: document.querySelector('[name=pickup_lng]'),
 //     onSelect: () => { /* e.g. clear the venue dropdown */ },
 //   });
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
 function attachAddressAutocomplete(inputEl, opts) {
   if (!inputEl) return;
   const { latInput, lngInput, onSelect } = opts || {};
@@ -19,6 +19,7 @@ function attachAddressAutocomplete(inputEl, opts) {
   let debounceTimer = null;
   let activeIndex = -1;
   let items = [];
+  let warnedThisSession = false;
 
   const wrap = inputEl.parentElement;
   wrap.style.position = 'relative';
@@ -32,6 +33,7 @@ function attachAddressAutocomplete(inputEl, opts) {
 
   function newSession() {
     sessionToken = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    warnedThisSession = false;
   }
 
   function clearCoords() {
@@ -79,7 +81,15 @@ function attachAddressAutocomplete(inputEl, opts) {
     if (!sessionToken) newSession();
     debounceTimer = setTimeout(async () => {
       const { data, error } = await api(`/geocode/suggest?q=${encodeURIComponent(q)}&session=${sessionToken}`);
-      if (error || !data) { closeMenu(); return; }
+      if (error || !data) {
+        closeMenu();
+        if (error && !warnedThisSession && typeof toastMsg === 'function') {
+          warnedThisSession = true;
+          toastMsg('Address lookup unavailable', error);
+        }
+        return;
+      }
+      warnedThisSession = false;
       items = data.suggestions || []; activeIndex = -1;
       renderMenu();
     }, 250);

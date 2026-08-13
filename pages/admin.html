@@ -48,7 +48,8 @@
     <a href="#sec-users" class="admin-sidenav-item"><i class="fa-solid fa-users"></i> Users</a>
     <a href="#sec-handlers" class="admin-sidenav-item"><i class="fa-solid fa-people-arrows"></i> Handlers</a>
     <a href="#sec-fleet" class="admin-sidenav-item"><i class="fa-solid fa-truck"></i> Fleet</a>
-    <a href="#sec-drivers" class="admin-sidenav-item"><i class="fa-solid fa-id-card"></i> Drivers</a>
+    <a href="#sec-drivers" class="admin-sidenav-item"><i class="fa-solid fa-id-card"></i> Drivers
+      <span id="drivers-badge" class="badge badge-pending" style="display:none;margin-left:6px"></span></a>
   </nav>
   <div class="admin-sections">
 
@@ -198,7 +199,8 @@
 
     <section id="sec-drivers" class="card admin-section">
       <div class="section-title"><i class="fa-solid fa-id-card"></i> Registered drivers</div>
-      <div class="small muted" style="margin-bottom:10px">Each driver's own vehicle — photo, class, plate, and HLSR hang tag number. Drivers set this up themselves from their Driver portal; assign or edit it here if needed.</div>
+      <div class="small muted" style="margin-bottom:10px">Each driver's own vehicle — photo, class, plate, and HLSR hang tag number. Drivers pick their vehicle at the start of a show/shift from their portal, but it needs your approval below before it takes effect; you can also assign or edit it directly here any time.</div>
+      <div id="vehicle-requests-alert"></div>
       <div style="overflow-x:auto">
         <table class="tbl"><thead><tr><th>Driver</th><th>Vehicle</th><th>Class</th><th>Plate</th><th>HLSR tag</th><th style="text-align:right">Actions</th></tr></thead>
         <tbody id="drivers-rows"></tbody></table>

@@ -1,6 +1,7 @@
 // Admin portal — users, handler links, vehicles, settings, logging
 const me = requireLogin('admin');
-let USERS = [], VEHICLES = [], VCLASSES = [], LOCS = [];
+let USERS = [], VEHICLES = [], VCLASSES = [], LOCS = [], PENDING_REQUESTS = [];
+let vehicleRequestsInited = false; // suppresses the "new request" toast on first load
 const LEVEL_BADGE = { info: 'badge-neutral', warn: 'badge-pending', error: 'badge-no' };
 
 // Same live map as Command Center, shrunk to fit the dashboard, with the
@@ -102,6 +103,61 @@ async function refresh() {
 // from per-shift/per-ride assignment — it answers "whose car is this
 // normally", not "who's driving this specific trip".
 function driverVehicle(driverId) { return VEHICLES.find(v => v.driver_id === driverId); }
+
+// Drivers pick their own vehicle at the start of a show/shift (or
+// switch it) from their portal, but it doesn't take effect until
+// dispatch/admin approves it here — a push notification goes out the
+// moment they ask (server-side, api/src/functions/vehicle-requests.js),
+// and this poll + badge + toast is the always-on fallback so a pending
+// request never gets missed just because nobody was looking at a phone.
+async function refreshVehicleRequests() {
+  const { data } = await api('/vehicle-requests?status=pending');
+  const list = data || [];
+  if (vehicleRequestsInited) {
+    const prevIds = new Set(PENDING_REQUESTS.map(r => r.id));
+    list.filter(r => !prevIds.has(r.id)).forEach(r =>
+      toastMsg('Vehicle request', `${r.driver_name} wants ${r.vehicle_label}`));
+  }
+  PENDING_REQUESTS = list;
+  vehicleRequestsInited = true;
+  renderVehicleRequests();
+}
+
+function renderVehicleRequests() {
+  const badge = document.getElementById('drivers-badge');
+  if (badge) {
+    if (PENDING_REQUESTS.length) { badge.textContent = PENDING_REQUESTS.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+  }
+  const el = document.getElementById('vehicle-requests-alert');
+  if (!el) return;
+  if (!PENDING_REQUESTS.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card card-sm" style="border:1.5px solid rgba(239,118,34,0.45);margin-bottom:14px">
+    <div class="section-title" style="margin-bottom:4px"><i class="fa-solid fa-bell"></i> Pending vehicle requests (${PENDING_REQUESTS.length})</div>
+    ${PENDING_REQUESTS.map(rq => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.08);flex-wrap:wrap">
+        <img src="${esc(rq.driver_photo || '')}" onerror="this.style.visibility='hidden'"
+             style="width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--surface3);flex-shrink:0" />
+        <div style="flex:1;min-width:160px">
+          <div><b>${esc(rq.driver_name)}</b> wants <b>${esc(rq.vehicle_label)}</b></div>
+          <div class="small muted">Requested ${esc(fmtWhen(rq.requested_at))}</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="decideVehicleRequest('${rq.id}','approve')"><i class="fa-solid fa-check"></i> Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="decideVehicleRequest('${rq.id}','deny')"><i class="fa-solid fa-xmark"></i> Deny</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+async function decideVehicleRequest(id, decision) {
+  let note = null;
+  if (decision === 'deny') {
+    note = await promptModal('The driver will see this.', { title: 'Reason for denying (optional)', required: false, okLabel: 'Deny request' });
+  }
+  const { error } = await api(`/vehicle-requests/${id}/decide`, 'POST', { decision, note });
+  if (error) return toastMsg('Could not save decision', error);
+  toastMsg(decision === 'approve' ? 'Vehicle request approved' : 'Vehicle request denied', '');
+  refreshVehicleRequests(); refresh();
+}
 
 function renderDrivers() {
   const el = document.getElementById('drivers-rows');
@@ -555,6 +611,8 @@ function initSidenavScrollspy() {
   LOCS = locs || [];
   refresh();
   initSidenavScrollspy();
+  refreshVehicleRequests();
+  setInterval(refreshVehicleRequests, 15000);
   adminMap.init().finally(() => { refreshAdminMap(); setInterval(refreshAdminMap, 5000); });
   // Nav links elsewhere point Settings at admin.html#settings since it's
   // an in-page view, not its own URL — land there directly on load.

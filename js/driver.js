@@ -1,6 +1,6 @@
 // Driver portal — assigned pickups, state buttons, position pings, issue alerts
 const me = requireLogin('driver');
-let ACTIVE = null, pingTimer = null, MY_VEHICLE = null;
+let ACTIVE = null, pingTimer = null, MY_VEHICLE = null, MY_REQUEST = null, ALL_VEHICLES = [];
 
 const NEXT_ACTION = {
   assigned:    { action: 'start',    label: 'START DRIVE',        icon: 'fa-play', cls: '' },
@@ -62,23 +62,50 @@ async function sendAlert(id, kind) {
   toastMsg('Dispatch alerted', 'The rider and their handler got a soft heads-up. Dispatch will follow up.');
 }
 
-// ── My vehicle — self-service plate, HLSR hang tag, and photo for
-// whichever vehicle is persistently assigned to this driver (set by
-// admin under Admin → Drivers, or by the driver here once assigned).
+// ── My vehicle ─────────────────────────────────────────────────
+// Two different things live here, and they're gated differently:
+//   - WHICH vehicle you're driving is a request dispatch/admin must
+//     approve (start-of-show/shift pick, or a switch mid-event) —
+//     see api/src/functions/vehicle-requests.js.
+//   - Once you're in a vehicle, its plate/photo/HLSR hang tag are
+//     yours to keep current — no approval needed for those.
 // GET /vehicles is open to any signed-in role; filter to "mine" client-side.
 async function refreshVehicle() {
-  const { data: vehicles } = await api('/vehicles');
-  MY_VEHICLE = (vehicles || []).find(v => v.driver_id === me.id) || null;
+  const [{ data: vehicles }, { data: requests }] = await Promise.all([
+    api('/vehicles'), api('/vehicle-requests?status=pending'),
+  ]);
+  ALL_VEHICLES = vehicles || [];
+  MY_VEHICLE = ALL_VEHICLES.find(v => v.driver_id === me.id) || null;
+  MY_REQUEST = (requests || [])[0] || null; // driver-scoped GET already filters to "mine"
   renderVehicle();
 }
 
 function renderVehicle() {
   const el = document.getElementById('my-vehicle');
   if (!el) return;
-  if (!MY_VEHICLE) {
-    el.innerHTML = '<div class="card card-sm small muted">No vehicle assigned yet — ask dispatch or admin to assign you one.</div>';
+
+  if (MY_REQUEST) {
+    el.innerHTML = `<div class="card card-sm" style="border:1.5px solid rgba(239,118,34,0.40)">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <i class="fa-solid fa-hourglass-half" style="color:var(--amber)"></i>
+        <div style="flex:1;min-width:180px">
+          <div><b>Waiting for approval</b> — you asked for ${esc(MY_REQUEST.vehicle_label)}</div>
+          <div class="small muted">Requested ${esc(fmtWhen(MY_REQUEST.requested_at))}</div>
+        </div>
+        <button class="btn btn-sm" onclick="cancelMyVehicleRequest()">Cancel request</button>
+      </div>
+    </div>`;
     return;
   }
+
+  if (!MY_VEHICLE) {
+    el.innerHTML = `<div class="card card-sm">
+      <div class="small muted" style="margin-bottom:10px">No vehicle assigned yet — pick the one you're driving today. Dispatch or admin will approve it.</div>
+      <button class="btn btn-primary btn-block" onclick="requestVehicle()"><i class="fa-solid fa-car"></i> Choose my vehicle</button>
+    </div>`;
+    return;
+  }
+
   const v = MY_VEHICLE;
   el.innerHTML = `<div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
     <img src="${esc(v.photo_url || '')}" onerror="this.style.visibility='hidden'"
@@ -88,11 +115,35 @@ function renderVehicle() {
       <div class="small muted" style="margin-top:4px">Plate: <span class="mono">${esc(v.plate || '—')}</span></div>
       <div class="small muted">HLSR hang tag: <span class="mono">${esc(v.hang_tag || '—')}</span></div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="editMyVehiclePhoto()" title="Vehicle photo"><i class="fa-solid fa-camera"></i></button>
       <button class="btn btn-sm" onclick="editMyVehicleDetails()" title="Plate / hang tag"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm" onclick="requestVehicle()" title="Switch vehicles"><i class="fa-solid fa-right-left"></i> Change</button>
     </div>
   </div>`;
+}
+
+async function requestVehicle() {
+  const options = ALL_VEHICLES.filter(v => v.active).map(v =>
+    `<option value="${v.id}">${esc(v.label)}${v.driver_id && v.driver_id !== me.id ? ' (in use)' : ''}</option>`);
+  if (!options.length) return toastMsg('No vehicles available', 'Ask dispatch to add one first.');
+  const f = await formModal(MY_VEHICLE ? 'Change my vehicle' : 'Choose my vehicle', `
+    <div class="form-group"><label class="form-label">Vehicle</label>
+      <select class="form-input" name="vehicle_id">${options.join('')}</select></div>
+    <div class="small muted">Dispatch or admin will approve this before it's official.</div>
+  `, { icon: 'fa-car', submitLabel: 'Request', wide: false });
+  if (!f) return;
+  const { error } = await api('/vehicle-requests', 'POST', { vehicle_id: f.vehicle_id.value });
+  if (error) return toastMsg('Could not send request', error);
+  toastMsg('Request sent', 'Waiting on dispatch/admin approval.');
+  refreshVehicle();
+}
+
+async function cancelMyVehicleRequest() {
+  if (!MY_REQUEST) return;
+  await api(`/vehicle-requests/${MY_REQUEST.id}/cancel`, 'POST');
+  toastMsg('Request cancelled', '');
+  refreshVehicle();
 }
 
 async function editMyVehicleDetails() {

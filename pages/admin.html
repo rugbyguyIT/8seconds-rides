@@ -94,7 +94,7 @@
           <select class="form-input" name="uclass"><option value="vip">VIP</option><option value="executive">Executive</option>
           <option value="performer">Performer</option><option value="guest">Guest</option></select></div>
       </div>
-      <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
+      <div class="form-group" id="pw-row" style="display:none"><label class="form-label" id="pw-row-label">Password (dispatch/admin only)</label>
         <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
       <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
         <input class="form-input" name="photo" placeholder="https://…" /></div>
@@ -115,9 +115,9 @@
         <div class="form-group"><label class="form-label">Plate</label><input class="form-input" name="plate" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Capacity</label><input class="form-input" type="number" name="capacity" value="6" /></div>
+        <div class="form-group"><label class="form-label">Capacity (excl. driver)</label><input class="form-input" type="number" min="1" name="capacity" value="6" /></div>
         <div class="form-group"><label class="form-label">Class</label>
-          <select class="form-input" name="vclass"></select></div>
+          <select class="form-input" name="vclass" onchange="vclassChanged(this)"></select></div>
       </div>
       <div class="form-group"><label class="form-label">Description (riders see this)</label><input class="form-input" name="color" placeholder="White Suburban" /></div>
       <div class="small muted" style="margin:-6px 0 12px">Add or edit vehicle classes, and vehicle/class photos, under Settings.</div>
@@ -151,11 +151,12 @@
 <div class="bento-grid">
   <div class="card bento-6">
     <div class="section-title"><i class="fa-solid fa-car"></i> Vehicle classes</div>
-    <div class="small muted" style="margin-bottom:10px">Each class can have a reference photo (uploaded or AI-generated) shown when a specific vehicle doesn't have its own.</div>
+    <div class="small muted" style="margin-bottom:10px">Each class has a default seat count (excluding the driver) new vehicles inherit, and can have a reference photo (uploaded or AI-generated) shown when a specific vehicle doesn't have its own.</div>
     <table class="tbl"><tbody id="vclass-rows"></tbody></table>
     <form onsubmit="createVehicleClass(event)" class="form-row" style="margin-top:14px;align-items:end">
       <div class="form-group"><label class="form-label">Key</label><input class="form-input" name="class_key" placeholder="limo" required /></div>
       <div class="form-group"><label class="form-label">Display name</label><input class="form-input" name="class_label" placeholder="Limo" required /></div>
+      <div class="form-group"><label class="form-label">Seats (excl. driver)</label><input class="form-input" type="number" min="1" name="class_capacity" value="6" required /></div>
       <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-plus"></i> Add class</button>
     </form>
   </div>

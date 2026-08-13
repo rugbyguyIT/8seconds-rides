@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────────────────────
 // 8 Seconds Ride Management — auth endpoints
 //   POST /api/auth/identify     email → { flow }            (public)
-//   POST /api/auth/login        email+password → token      (dispatch/admin)
+//   POST /api/auth/login        email+password → token      (dispatch/admin/display)
 //   POST /api/auth/otp/request  email → SMS code            (rider/handler/driver)
 //   POST /api/auth/otp/verify   email+code → token
+//   POST /api/auth/pin          PIN only → token             (display — Command Center kiosk)
 //   POST /api/auth/bootstrap    one-time first-admin setup  (BOOTSTRAP_SECRET)
 // Session lifetimes are role-based — see middleware.SESSION_TTL.
 // Every login attempt (success AND failure) is written to audit_logs
@@ -16,12 +17,12 @@ const { json, err, signSession, logAudit } = require('../middleware');
 const { sendSms, phoneHint } = require('../sms');
 
 const OTP_ROLES = ['rider', 'handler', 'driver'];
-const PW_ROLES = ['dispatch', 'admin'];
+const PW_ROLES = ['dispatch', 'admin', 'display'];
 const OTP_TTL_MIN = 20;
 const OTP_MAX_TRIES = 5;
 
 const PORTAL = { rider: '/pages/rider.html', handler: '/pages/handler.html', driver: '/pages/driver.html',
-                 dispatch: '/pages/dispatch.html', admin: '/pages/admin.html', display: '/pages/dispatch.html' };
+                 dispatch: '/pages/dispatch.html', admin: '/pages/admin.html', display: '/pages/command.html' };
 
 function safeProfile(p) { const { password_hash, token_version, ...rest } = p; return rest; }
 
@@ -121,6 +122,30 @@ app.http('authOtpVerify', {
     await query(`UPDATE public.otp_tokens SET used = TRUE WHERE id = $1`, [t.id]);
     await logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'login_otp' });
     return json({ token: signSession(p), profile: safeProfile(p), portal: PORTAL[p.role] });
+  },
+});
+
+// Command Center kiosk sign-in — no email, just a shared PIN typed on a
+// touchscreen (see pages/kiosk.html). The PIN IS the password for a
+// "Display (command room)" account (Admin → Create user → role Display,
+// set a numeric password there). Matches against every active display
+// account since a kiosk has no idea which one it is until the PIN
+// resolves it; in practice there's only ever one or a handful.
+app.http('authPin', {
+  methods: ['POST'], authLevel: 'anonymous', route: 'auth/pin',
+  handler: async (request) => {
+    let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
+    const { pin } = body || {};
+    if (!pin || !String(pin).trim()) return err('PIN is required');
+    const r = await query(`SELECT * FROM public.profiles WHERE role = 'display' AND status = 'active' AND password_hash IS NOT NULL`);
+    for (const p of r.rows) {
+      if (await bcrypt.compare(String(pin).trim(), p.password_hash)) {
+        await logAudit(request, { profile_id: p.id, email: p.email, full_name: p.full_name, action: 'login_pin' });
+        return json({ token: signSession(p), profile: safeProfile(p), portal: PORTAL[p.role] });
+      }
+    }
+    await logAudit(request, { action: 'login_pin_failed', detail: 'no matching kiosk PIN' });
+    return err('Incorrect PIN', 401);
   },
 });
 

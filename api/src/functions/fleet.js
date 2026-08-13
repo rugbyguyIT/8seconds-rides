@@ -2,7 +2,7 @@
 // 8 Seconds Ride Management — vehicles + venue library
 //   GET/POST /api/vehicles, PATCH /api/vehicles/{id}
 //   GET/POST /api/locations, PATCH /api/locations/{id}
-// ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 const { app } = require('@azure/functions');
 const { query } = require('../db');
 const { json, err, requireAuth, requireRole } = require('../middleware');
@@ -21,10 +21,18 @@ app.http('vehicles', {
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const { label, plate, capacity, vclass, color_desc, photo_url } = body || {};
     if (!label) return err('label required');
+    // No explicit capacity? Fall back to the chosen class's default seat
+    // count (excluding driver) rather than a hardcoded 6, so classes like
+    // a 12-seat Sprinter Van behave sensibly out of the box.
+    let cap = capacity;
+    if (cap == null && vclass) {
+      const c = await query(`SELECT default_capacity FROM public.vehicle_classes WHERE key = $1`, [vclass]);
+      if (c.rows[0]) cap = c.rows[0].default_capacity;
+    }
     const r = await query(
       `INSERT INTO public.vehicles (label, plate, capacity, class, color_desc, photo_url)
        VALUES ($1,$2,COALESCE($3,6),COALESCE($4,'suv'),$5,$6) RETURNING *`,
-      [label, plate || null, capacity, vclass, color_desc || null, photo_url || null]);
+      [label, plate || null, cap, vclass, color_desc || null, photo_url || null]);
     return json(r.rows[0], 201);
   },
 });

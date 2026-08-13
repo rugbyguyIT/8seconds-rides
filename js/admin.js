@@ -68,7 +68,7 @@ async function loadVehicleClasses() {
   const { data } = await api('/vehicle-classes');
   VCLASSES = data || [];
   const sel = document.querySelector('[name=vclass]');
-  if (sel) sel.innerHTML = VCLASSES.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+  if (sel) { sel.innerHTML = VCLASSES.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join(''); vclassChanged(sel); }
   renderVehicleClasses();
 }
 
@@ -80,22 +80,47 @@ function renderVehicleClasses() {
           <img src="${esc(c.photo_url || '')}" onerror="this.style.visibility='hidden'"
                style="width:34px;height:34px;border-radius:8px;object-fit:cover;background:var(--surface3);flex-shrink:0" />
           <div><b>${esc(c.label)}</b><div class="small mono muted">${esc(c.key)}</div></div></td>
+        <td class="small muted" style="white-space:nowrap"><i class="fa-solid fa-chair"></i> ${c.default_capacity || 6} seats</td>
         <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="editClassCapacity('${c.id}')" title="Edit seats"><i class="fa-solid fa-chair"></i></button>
           <button class="btn btn-sm" onclick="openPhotoModal('class','${c.id}','${esc(c.label)}')" title="Class photo"><i class="fa-solid fa-camera"></i></button>
           <button class="btn btn-danger btn-sm" onclick="toggleClassActive('${c.id}',${c.active})">${c.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('')
-    : '<tr><td colspan="2" class="small muted">No vehicle classes yet.</td></tr>';
+    : '<tr><td colspan="3" class="small muted">No vehicle classes yet.</td></tr>';
 }
 
 async function createVehicleClass(ev) {
   ev.preventDefault();
   const f = ev.target;
-  const { error } = await api('/vehicle-classes', 'POST', { key: f.class_key.value, label: f.class_label.value });
+  const { error } = await api('/vehicle-classes', 'POST',
+    { key: f.class_key.value, label: f.class_label.value, default_capacity: parseInt(f.class_capacity.value, 10) || 6 });
   if (error) return toastMsg('Could not add class', error);
   toastMsg('Vehicle class added', f.class_label.value); f.reset(); loadVehicleClasses();
 }
 
 async function toggleClassActive(id, active) {
   await api('/vehicle-classes/' + id, 'PATCH', { active: !active }); loadVehicleClasses();
+}
+
+async function editClassCapacity(id) {
+  const c = VCLASSES.find(x => x.id === id);
+  if (!c) return;
+  const val = await promptModal('How many riders can this vehicle class seat, not counting the driver?',
+    { title: `Seats — ${c.label}`, placeholder: 'e.g. 6', okLabel: 'Save' });
+  if (!val) return;
+  const cap = parseInt(val, 10);
+  if (!Number.isFinite(cap) || cap < 1) return toastMsg('Not saved', 'Enter a whole number of 1 or more.');
+  const { error } = await api('/vehicle-classes/' + id, 'PATCH', { default_capacity: cap });
+  if (error) return toastMsg('Could not save', error);
+  toastMsg('Seats updated', `${c.label}: ${cap}`); loadVehicleClasses();
+}
+
+// The Add-vehicle form's capacity field defaults to whatever the
+// selected class normally seats, so admins only override it for a
+// specific vehicle that's different from the rest of its class.
+function vclassChanged(sel) {
+  const c = VCLASSES.find(x => x.key === sel.value);
+  const capField = document.querySelector('[name=capacity]');
+  if (c && capField) capField.value = c.default_capacity || 6;
 }
 
 // Upload-or-generate photo modal, shared by vehicle classes and individual
@@ -260,7 +285,9 @@ async function toggleVehicle(id, active) {
 }
 function roleChanged(sel) {
   const pwRow = document.getElementById('pw-row');
-  pwRow.style.display = ['dispatch', 'admin'].includes(sel.value) ? '' : 'none';
+  pwRow.style.display = ['dispatch', 'admin', 'display'].includes(sel.value) ? '' : 'none';
+  document.getElementById('pw-row-label').textContent = sel.value === 'display'
+    ? 'Kiosk PIN (used to sign in at /pages/kiosk.html)' : 'Password (dispatch/admin only)';
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
@@ -343,5 +370,8 @@ async function loadAppLogs(level) {
   if (pickupSel) pickupSel.innerHTML = locationOptions(LOCS, 'Choose a pickup point…');
   if (dropoffSel) dropoffSel.innerHTML = locationOptions(LOCS, 'Choose a destination…');
   refresh();
+  // Nav links elsewhere point Settings at admin.html#settings since it's
+  // an in-page view, not its own URL — land there directly on load.
+  if (window.location.hash === '#settings') setView('settings');
   if (typeof initPushNotifications === 'function') initPushNotifications();
 })();

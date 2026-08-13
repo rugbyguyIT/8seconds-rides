@@ -3,11 +3,33 @@
 // idle). Polls the same data dispatch uses; nothing here mutates rides.
 const me = requireLogin('admin', 'dispatch', 'display');
 let VEHICLES = [];
+let realMap = null;         // mapboxgl.Map once/if a public token is configured
+const mapMarkers = {};      // vehicle_id -> mapboxgl.Marker, kept across refreshes
 
 function tickClock() {
   const d = new Date();
   document.getElementById('cmd-clock').textContent = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   document.getElementById('cmd-date').textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+// This kiosk can be reached two ways: a normal admin/dispatch sign-in
+// (full nav back to their other portals), or the PIN-only Command
+// Center kiosk sign-in (pages/kiosk.html) for a "display" account —
+// which has no email/password to sign back in with, so it goes back
+// to the PIN pad instead of the general login screen.
+function renderCmdLinks() {
+  const el = document.getElementById('cmd-links');
+  const btn = (href, icon, label) =>
+    `<a href="${href}" class="btn btn-sm" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);color:#fff;text-decoration:none"><i class="fa-solid ${icon}"></i> ${label}</a>`;
+  let html = '';
+  if (me.role === 'admin') html += btn('/pages/admin.html', 'fa-arrow-left', 'Admin');
+  if (me.role !== 'display') html += btn('/pages/dispatch.html', 'fa-inbox', 'Dispatch');
+  el.innerHTML = html;
+}
+function kioskSignOut() {
+  if (me.role !== 'display') { signOut(); return; }
+  [localStorage, sessionStorage].forEach(s => { s.removeItem('rides_token'); s.removeItem('rides_profile'); });
+  window.location.href = '/pages/kiosk.html';
 }
 
 // Lat/lng -> local SVG coordinates. Auto-fits to wherever the fleet
@@ -55,6 +77,66 @@ function vehicleMarkup(pos, ride, bbox) {
   </g>`;
 }
 
+// Real map (Mapbox GL) — only active once /api/config/map-token
+// returns a token (see initRealMap). Mirrors vehicleMarkup() above but
+// as an actual HTML marker pinned to real lat/lng instead of a
+// hand-projected SVG dot, so it's real streets/imagery underneath.
+function updateRealMapMarkers(pos, rideByVehicle) {
+  if (!realMap) return;
+  const seen = new Set();
+  pos.forEach((p) => {
+    seen.add(p.vehicle_id);
+    const ride = rideByVehicle[p.vehicle_id];
+    const state = ride && RIDE_VEH_STATE[ride.status];
+    const fill = state ? state.fill : '#3d5a7c';
+    const tag = state ? state.tag : (p.stale ? 'STALE' : 'IDLE');
+    let m = mapMarkers[p.vehicle_id];
+    if (!m) {
+      const el = document.createElement('div');
+      el.className = 'mb-veh-marker';
+      el.innerHTML = `<div class="mb-veh-label">${esc(p.label)}</div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div>`;
+      m = new mapboxgl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(realMap);
+      mapMarkers[p.vehicle_id] = m;
+    } else {
+      m.setLngLat([p.lng, p.lat]);
+    }
+    const el = m.getElement();
+    const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag');
+    dot.style.background = fill; dot.classList.toggle('stale', !!p.stale && !ride);
+    tagEl.textContent = tag; tagEl.style.background = fill;
+  });
+  Object.keys(mapMarkers).forEach((id) => {
+    if (!seen.has(id)) { mapMarkers[id].remove(); delete mapMarkers[id]; }
+  });
+  if (pos.length) {
+    const bbox = computeBbox(pos);
+    realMap.fitBounds([[bbox.minLng, bbox.minLat], [bbox.maxLng, bbox.maxLat]], { padding: 40, duration: 400, maxZoom: 16 });
+  }
+}
+
+// Loads a public Mapbox token from the server (never committed/hardcoded
+// — see api/src/functions/geocode.js mapPublicToken) and, if one is
+// configured, swaps the stylized SVG board for a real interactive map.
+// If it's not configured yet, the SVG board keeps working exactly as
+// before — nothing regresses for venues that haven't set it up.
+async function initRealMap() {
+  if (typeof mapboxgl === 'undefined') return;
+  const { data } = await api('/config/map-token');
+  const token = data && data.token;
+  if (!token) return;
+  mapboxgl.accessToken = token;
+  document.getElementById('cmd-map-fallback').style.display = 'none';
+  document.getElementById('cmd-map-real').style.display = 'block';
+  realMap = new mapboxgl.Map({
+    container: 'cmd-map-real',
+    style: 'mapbox://styles/mapbox/dark-v11',
+    center: [-95.4103, 29.6857], // NRG Park, Houston — replaced by fitBounds once vehicles report in
+    zoom: 13,
+    attributionControl: false,
+  });
+  realMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+}
+
 function railCard(r) {
   return `<div class="cmd-ride">
     <div class="r-top"><span class="r-name">${esc(r.enduser_name)}</span>
@@ -87,11 +169,16 @@ async function refresh() {
 
   const rideByVehicle = {};
   live.forEach(r => { if (r.vehicle_id) rideByVehicle[r.vehicle_id] = r; });
-  const bbox = computeBbox(pos);
-  document.getElementById('veh-layer').innerHTML = pos.map(p => vehicleMarkup(p, rideByVehicle[p.vehicle_id], bbox)).join('');
+  if (realMap) {
+    updateRealMapMarkers(pos, rideByVehicle);
+  } else {
+    const bbox = computeBbox(pos);
+    document.getElementById('veh-layer').innerHTML = pos.map(p => vehicleMarkup(p, rideByVehicle[p.vehicle_id], bbox)).join('');
+  }
 }
 
 (function init() {
+  renderCmdLinks();
   tickClock(); setInterval(tickClock, 1000);
-  refresh(); setInterval(refresh, 5000);
+  initRealMap().finally(() => { refresh(); setInterval(refresh, 5000); });
 })();

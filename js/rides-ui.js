@@ -188,6 +188,41 @@ function toggleHighContrast(force) {
 (function initHighContrast() {
   try { if (localStorage.getItem('hc_mode') === '1') document.body.classList.add('hc'); } catch {}
 })();
+// ── Shared top nav ──
+// Populates any EMPTY .topnav-links with the right links for the
+// signed-in user's role, so the menu bar persists when navigating
+// between portals (Admin -> Dispatch -> Command Center and back —
+// previously each page only had whatever nav its own HTML hardcoded,
+// so it "disappeared" the moment you left admin.html).
+// admin.html keeps its own hardcoded nav (Dashboard/Settings are
+// in-page view switches driven by admin.js's setView(), not separate
+// URLs) — this only fills in pages whose .topnav-links is still empty,
+// so it never fights that markup. "Settings" from elsewhere links to
+// admin.html#settings; admin.js's init() checks that hash on load.
+function renderTopNav() {
+  const el = document.querySelector('.topnav-links');
+  if (!el || el.children.length) return;
+  const prof = getProfile();
+  if (!prof) return;
+  const path = window.location.pathname;
+  const link = (href, icon, label) =>
+    `<a class="nav-item${path === href ? ' active' : ''}" href="${href}" style="text-decoration:none"><i class="fa-solid ${icon}"></i><span>${label}</span></a>`;
+  let items = '';
+  if (prof.role === 'admin') {
+    items = link('/pages/admin.html', 'fa-gauge', 'Dashboard')
+      + link('/pages/dispatch.html', 'fa-tower-broadcast', 'Dispatch')
+      + link('/pages/command.html', 'fa-satellite-dish', 'Command Center')
+      + link('/pages/admin.html#settings', 'fa-gear', 'Settings');
+  } else if (prof.role === 'dispatch' || prof.role === 'display') {
+    items = link('/pages/dispatch.html', 'fa-tower-broadcast', 'Dispatch')
+      + link('/pages/command.html', 'fa-satellite-dish', 'Command Center');
+  }
+  if (items) el.innerHTML = items;
+}
+(function initTopNav() {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderTopNav);
+  else renderTopNav();
+})();
 function formModal(title, fieldsHtml, opts) {
   opts = opts || {};
   return new Promise((resolve) => {

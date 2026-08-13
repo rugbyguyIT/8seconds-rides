@@ -12,7 +12,7 @@
 // Env for AI photos: OPENAI_API_KEY
 // Both are optional — if missing, the relevant action returns a clear
 // 503 instead of a stack trace, same pattern as MAPBOX_TOKEN.
-// ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 const { app } = require('@azure/functions');
 const { query } = require('../db');
 const { json, err, requireAuth, requireRole, logApp } = require('../middleware');
@@ -53,14 +53,15 @@ app.http('vehicleClasses', {
     const { error, status } = await requireRole(request, 'admin');
     if (error) return err(error, status);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
-    const { key, label } = body || {};
+    const { key, label, default_capacity } = body || {};
     if (!key || !label) return err('key and label are required');
     const slug = String(key).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     if (!slug) return err('key must contain at least one letter or number');
+    const cap = parseInt(default_capacity, 10);
     try {
       const r = await query(
-        `INSERT INTO public.vehicle_classes (key, label) VALUES ($1,$2) RETURNING *`,
-        [slug, String(label).trim()]);
+        `INSERT INTO public.vehicle_classes (key, label, default_capacity) VALUES ($1,$2,COALESCE($3,6)) RETURNING *`,
+        [slug, String(label).trim(), Number.isFinite(cap) && cap > 0 ? cap : null]);
       return json(r.rows[0], 201);
     } catch (e) {
       if (e.code === '23505') return err(`A class with key "${slug}" already exists`, 409);
@@ -76,7 +77,7 @@ app.http('vehicleClassesUpdate', {
     if (error) return err(error, status);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const sets = []; const vals = []; let i = 1;
-    for (const f of ['label', 'active', 'photo_url', 'sort_order']) {
+    for (const f of ['label', 'active', 'photo_url', 'sort_order', 'default_capacity']) {
       if (body[f] !== undefined) { sets.push(`${f} = $${i++}`); vals.push(body[f]); }
     }
     if (!sets.length) return err('Nothing to update');

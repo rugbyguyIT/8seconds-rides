@@ -14,6 +14,22 @@
 const { app } = require('@azure/functions');
 const { json, err, requireAuth } = require('../middleware');
 
+// Command Center's live map (js/command.js) needs a Mapbox *public*
+// token (starts "pk.") to draw real street tiles in the browser — a
+// different, safe-to-expose token from MAPBOX_TOKEN above (that one's
+// a secret "sk." token and must never reach the client). Same Mapbox
+// account, just grab the public token from account settings and add
+// it as the MAPBOX_PUBLIC_TOKEN app setting. Optional: if unset, the
+// Command Center falls back to its stylized (non-satellite) board.
+app.http('mapPublicToken', {
+  methods: ['GET'], authLevel: 'anonymous', route: 'config/map-token',
+  handler: async (request) => {
+    const { error, status } = await requireAuth(request);
+    if (error) return err(error, status);
+    return json({ token: process.env.MAPBOX_PUBLIC_TOKEN || null });
+  },
+});
+
 // Biases results toward NRG Park / Houston without excluding elsewhere
 // (riders/handlers/hotels are all over the metro, not just on-site).
 const HOUSTON_PROXIMITY = '-95.4103,29.6857'; // NRG Gate 10, from the seeded venue library

@@ -1,0 +1,16 @@
+-- ─────────────────────────────────────────────────────────────
+-- 8 Second Rides — rev 5: per-class seat capacity
+-- Run manually against the live DB:
+--   psql "$DATABASE_URL" -f api/migrations/005_seats_and_kiosk.sql
+-- Safe to re-run — IF NOT EXISTS guarded.
+--
+-- Adds a default seat count (excluding the driver) to each vehicle
+-- class, so "SUV" can default to 6 seats, "Sprinter Van" to 12, etc.
+-- Individual vehicles can still override it (vehicles.capacity), same
+-- as they can already override a class's photo.
+--
+-- The Command Center kiosk PIN sign-in (Admin → Create user → role
+-- "Display (command room)", set a password/PIN) needed no schema
+-- change — it reuses the existing profiles.password_hash column.
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.vehicle_classes ADD COLUMN IF NOT EXISTS default_capacity INT NOT NULL DEFAULT 6;

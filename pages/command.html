@@ -38,6 +38,9 @@
       <div id="cmd-map-controls" class="cmd-map-controls">
         <button class="btn btn-sm cmd-map-btn" onclick="recenterMap()"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
         <button class="btn btn-sm cmd-map-btn" onclick="zoomToCity()"><i class="fa-solid fa-city"></i> Zoom to city</button>
+        <button class="btn btn-sm cmd-map-btn" id="cmd-autocycle-btn" onclick="toggleAutoCycle()"><i class="fa-solid fa-arrows-rotate"></i> Auto cycle</button>
+        <input type="number" id="cmd-autocycle-secs" class="cmd-map-secs-input" value="20" min="5" max="600" step="5"
+               title="Seconds between zoom-to-city and recenter" onclick="event.stopPropagation()" />
       </div>
       <div id="cmd-map-real" style="display:none;height:100%;border-radius:var(--r2);overflow:hidden"></div>
       <div id="cmd-map-fallback" class="map-wrap" style="height:100%">

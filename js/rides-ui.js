@@ -79,14 +79,19 @@ function _closeUiModal() {
   document.getElementById('ui-modal-overlay')?.remove();
   if (_uiModalEscHandler) { document.removeEventListener('keydown', _uiModalEscHandler); _uiModalEscHandler = null; }
 }
-function _openUiModal(innerHtml, onMount, onEscape) {
+function _openUiModal(innerHtml, onMount, onEscape, maxWidth) {
   _closeUiModal();
   const overlay = document.createElement('div');
   overlay.id = 'ui-modal-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,10,20,0.55);backdrop-filter:blur(6px);'
     + '-webkit-backdrop-filter:blur(6px);z-index:2000;display:flex;align-items:center;justify-content:center;'
     + 'padding:20px;animation:uiModalFade .15s ease both';
-  overlay.innerHTML = `<div class="card" style="width:100%;max-width:380px;padding:22px;animation:uiModalPop .18s cubic-bezier(.21,1.02,.73,1) both">${innerHtml}</div>`;
+  // Fluid width (100% up to maxWidth) so this is naturally bigger on
+  // desktop and shrinks to fit on phones — no separate mobile styling
+  // needed, the overlay's own 20px padding does the rest. Plain
+  // confirm/prompt messages stay compact (380px default); forms with
+  // multi-column rows (formModal) ask for more room.
+  overlay.innerHTML = `<div class="card" style="width:100%;max-width:${maxWidth || 380}px;padding:22px;animation:uiModalPop .18s cubic-bezier(.21,1.02,.73,1) both">${innerHtml}</div>`;
   document.body.appendChild(overlay);
   _uiModalEscHandler = (e) => { if (e.key === 'Escape' && typeof onEscape === 'function') onEscape(); };
   document.addEventListener('keydown', _uiModalEscHandler);
@@ -241,6 +246,11 @@ function formModal(title, fieldsHtml, opts) {
       const form = ov.querySelector('#ui-modal-form');
       form.addEventListener('submit', (e) => { e.preventDefault(); finish(form); });
       ov.querySelector('input,select,textarea')?.focus();
-    }, () => finish(null));
+    }, () => finish(null),
+    // Forms carry two-column .form-row fields (rider/party, pickup/
+    // drop-off, etc.) that feel cramped at the plain-message width —
+    // give them room to breathe on desktop; the fluid width in
+    // _openUiModal already takes care of shrinking it back down on phones.
+    opts.wide === false ? 380 : 560);
   });
 }

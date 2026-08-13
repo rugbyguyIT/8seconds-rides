@@ -15,6 +15,24 @@ const cmdMap = createLiveMap({
 function recenterMap() { cmdMap.recenter(); }
 function zoomToCity() { cmdMap.zoomToCity(); }
 
+// Hands-free camera cycle for the unattended kiosk: alternate zoom-to-
+// city / recenter on a repeating beat, same length each way, so the
+// board doesn't need someone standing at it clicking buttons.
+function toggleAutoCycle() {
+  const btn = document.getElementById('cmd-autocycle-btn');
+  const secsInput = document.getElementById('cmd-autocycle-secs');
+  if (cmdMap.isAutoCycling()) {
+    cmdMap.stopAutoCycle();
+    btn.classList.remove('on');
+    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Auto cycle';
+  } else {
+    const secs = Math.max(5, parseInt(secsInput.value, 10) || 20);
+    cmdMap.startAutoCycle(secs);
+    btn.classList.add('on');
+    btn.innerHTML = '<i class="fa-solid fa-pause"></i> Stop cycle';
+  }
+}
+
 function tickClock() {
   const d = new Date();
   document.getElementById('cmd-clock').textContent = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });

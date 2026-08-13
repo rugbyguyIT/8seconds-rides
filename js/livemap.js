@@ -13,7 +13,7 @@
 //   center: [lng, lat],        default camera center (Recenter target)
 //   bounds: [[swLng,swLat],[neLng,neLat]], "Zoom to city" target
 //   zoom, recenterZoom,        default 13 / 15
-// }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), isReal() }
+// }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), startAutoCycle(seconds), stopAutoCycle(), isReal(), isAutoCycling() }
 // ─────────────────────────────────────────────────────────────
 // Three colors, on purpose: gray = not carrying anyone right now, orange
 // (rodeo orange) = en route to a pickup or waiting there, green = has a
@@ -60,6 +60,19 @@ function createLiveMap(cfg) {
   function vehLabel(pos, ride) {
     return (ride && ride.driver_name) || pos.label;
   }
+  // Hover tooltip: who's actually in the car. This does NOT need a
+  // role check here — the server already strips enduser_name/photo/id
+  // from the API response for role='display' (rides.js ridesList), so
+  // ride.enduser_name simply won't exist for the kiosk. Admin/dispatch
+  // get the real response and see it on hover; the kiosk gets nothing
+  // to show even if someone inspects the DOM. Same pattern as the
+  // pin label already uses for keeping the rider off the board.
+  function vehTooltip(pos, ride) {
+    const state = ride && RIDE_VEH_STATE[ride.status];
+    const tag = state ? state.tag : 'IDLE';
+    if (ride && ride.enduser_name) return `${ride.enduser_name} — ${tag}`;
+    return `${vehLabel(pos, ride)} — ${tag}`;
+  }
   function vehicleMarkup(pos, ride, bbox) {
     const { x, y } = toXY(pos.lat, pos.lng, bbox);
     const state = ride && RIDE_VEH_STATE[ride.status];
@@ -67,6 +80,7 @@ function createLiveMap(cfg) {
     const tag = state ? state.tag : 'IDLE';
     const stale = !!pos.stale && !ride;
     return `<g class="veh${stale ? ' veh-stale' : ''}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+      <title>${esc(vehTooltip(pos, ride))}</title>
       ${state && state.ring ? `<circle class="veh-ring" r="9" style="stroke:${fill}"/>` : ''}
       <circle class="veh-dot" r="7" style="fill:${fill}"/>
       <rect x="-36" y="-30" width="72" height="15" rx="4" class="veh-tag-bg"/>
@@ -105,6 +119,10 @@ function createLiveMap(cfg) {
       // never the rider's, and re-checked every refresh since a vehicle
       // can pick up/drop a ride between polls.
       labelEl.textContent = vehLabel(p, ride);
+      // Hover tooltip — re-set every refresh too, same reasoning as the
+      // label above. See vehTooltip()'s comment for why no role check
+      // is needed here (server already redacts enduser_name for role='display').
+      el.title = vehTooltip(p, ride);
     });
     Object.keys(mapMarkers).forEach((id) => {
       if (!seen.has(id)) { mapMarkers[id].remove(); delete mapMarkers[id]; }
@@ -185,5 +203,31 @@ function createLiveMap(cfg) {
     if (realMap) realMap.resize();
   }
 
-  return { init, refresh, recenter, zoomToCity, resize, isReal: () => !!realMap };
+  // Hands-free camera cycle for an unattended kiosk display: alternate
+  // between "zoom out to see the whole city" and "recenter on the
+  // venue" on a fixed beat, so nobody has to stand at the board and
+  // click. Reuses recenter()/zoomToCity() as-is — same real-map vs
+  // SVG-fallback behavior either way, just triggered by a timer
+  // instead of a click.
+  let autoCycleTimer = null;
+  let autoCycleAtCity = false;
+  function startAutoCycle(seconds) {
+    stopAutoCycle();
+    const secs = Math.max(5, Number(seconds) || 20);
+    autoCycleAtCity = false;
+    autoCycleTimer = setInterval(() => {
+      if (autoCycleAtCity) recenter(); else zoomToCity();
+      autoCycleAtCity = !autoCycleAtCity;
+    }, secs * 1000);
+  }
+  function stopAutoCycle() {
+    if (autoCycleTimer) { clearInterval(autoCycleTimer); autoCycleTimer = null; }
+    autoCycleAtCity = false;
+  }
+
+  return {
+    init, refresh, recenter, zoomToCity, resize, startAutoCycle, stopAutoCycle,
+    isReal: () => !!realMap,
+    isAutoCycling: () => !!autoCycleTimer,
+  };
 }

@@ -22,6 +22,7 @@ function getProfile() {
 }
 function signOut() {
   [localStorage, sessionStorage].forEach(s => { s.removeItem(TOKEN_KEY); s.removeItem(PROFILE_KEY); });
+  sessionStorage.removeItem('admin_return_token'); sessionStorage.removeItem('admin_return_profile');
   window.location.href = '/index.html';
 }
 

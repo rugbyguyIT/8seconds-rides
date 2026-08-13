@@ -22,6 +22,8 @@
     </div>
     <div class="topnav-links">
       <button class="nav-item active" id="nav-dashboard" onclick="setView('dashboard')"><i class="fa-solid fa-gauge"></i><span>Dashboard</span></button>
+      <a class="nav-item" href="/pages/dispatch.html" style="text-decoration:none"><i class="fa-solid fa-tower-broadcast"></i><span>Dispatch</span></a>
+      <a class="nav-item" href="/pages/command.html" style="text-decoration:none"><i class="fa-solid fa-satellite-dish"></i><span>Command Center</span></a>
       <button class="nav-item" id="nav-settings" onclick="setView('settings')"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
     </div>
     <div class="topnav-user">
@@ -38,6 +40,37 @@
 
 <!-- ═══════════════════════ DASHBOARD VIEW ═══════════════════════ -->
 <div class="view active" id="view-dashboard">
+<div class="card" style="margin-bottom:16px">
+  <div class="section-title"><i class="fa-solid fa-car-side"></i> Create a ride</div>
+  <div class="small muted" style="margin:-6px 0 14px">Book on behalf of any rider — dispatch is notified the same as a normal request.</div>
+  <form onsubmit="submitAdminRide(event)">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rider</label>
+        <select class="form-input" name="rider" required><option value="">Loading riders…</option></select></div>
+      <div class="form-group"><label class="form-label">Party size</label>
+        <select class="form-input" name="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Pickup</label>
+        <select class="form-input" name="pickup"></select>
+        <input class="form-input" name="pickup_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+      <div class="form-group"><label class="form-label">Drop-off</label>
+        <select class="form-input" name="dropoff"></select>
+        <input class="form-input" name="dropoff_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date &amp; time (blank = ASAP)</label><input class="form-input" type="datetime-local" name="when" /></div>
+      <div class="form-group"><label class="form-label">Notes for dispatch (optional)</label><input class="form-input" name="notes" placeholder="e.g. meeting the group at valet stand B" /></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Round trip — driver waits and returns</span>
+        <label class="switch"><input type="checkbox" name="round_trip"><span class="slider"></span></label></div>
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Wheelchair-accessible vehicle needed</span>
+        <label class="switch"><input type="checkbox" name="ada"><span class="slider"></span></label></div>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit request</button>
+  </form>
+</div>
 <div class="bento-grid">
   <div class="card bento-5">
     <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>

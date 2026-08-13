@@ -146,6 +146,35 @@ function promptModal(message, opts) {
     }, () => finish(null));
   });
 }
+// ── Admin "view as" banner ──
+// Shown on any page when an admin is impersonating a rider/handler
+// (see js/admin.js impersonate()). The admin's real token/profile are
+// stashed under separate sessionStorage keys so returning doesn't
+// require signing back in.
+function endImpersonation() {
+  const t = sessionStorage.getItem('admin_return_token');
+  const p = sessionStorage.getItem('admin_return_profile');
+  if (!t || !p) return;
+  sessionStorage.removeItem('admin_return_token'); sessionStorage.removeItem('admin_return_profile');
+  saveSession(t, JSON.parse(p));
+  window.location.href = '/pages/admin.html';
+}
+(function renderImpersonationBanner() {
+  if (!sessionStorage.getItem('admin_return_token')) return;
+  const show = () => {
+    const prof = getProfile();
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:sticky;top:0;z-index:500;display:flex;align-items:center;justify-content:center;'
+      + 'gap:10px;flex-wrap:wrap;background:linear-gradient(90deg,#7a2a00,#EF7622);color:#fff;font-size:13px;'
+      + 'font-weight:700;padding:8px 14px;text-align:center';
+    bar.innerHTML = `<i class="fa-solid fa-eye"></i> Viewing as ${esc((prof && prof.full_name) || 'this user')}
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.45);color:#fff" onclick="endImpersonation()">
+        <i class="fa-solid fa-arrow-left"></i> Return to Admin</button>`;
+    document.body.prepend(bar);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+  else show();
+})();
 function formModal(title, fieldsHtml, opts) {
   opts = opts || {};
   return new Promise((resolve) => {

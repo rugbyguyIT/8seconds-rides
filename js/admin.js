@@ -1,6 +1,6 @@
 // Admin portal — users, handler links, vehicles, settings, logging
 const me = requireLogin('admin');
-let USERS = [], VEHICLES = [], VCLASSES = [];
+let USERS = [], VEHICLES = [], VCLASSES = [], LOCS = [];
 const LEVEL_BADGE = { info: 'badge-neutral', warn: 'badge-pending', error: 'badge-no' };
 
 // ── View switching (Dashboard / Settings) ───────────────────────
@@ -29,6 +29,7 @@ async function refresh() {
         <td class="small mono">${esc(u.phone_mobile || '—')}</td>
         <td><span class="badge ${u.status === 'active' ? 'badge-approved' : 'badge-no'}">${esc(u.status)}</span></td>
         <td style="text-align:right;white-space:nowrap">
+          ${['rider', 'handler'].includes(u.role) ? `<button class="btn btn-sm" onclick="impersonate('${u.id}')" title="View as this user"><i class="fa-solid fa-eye"></i></button>` : ''}
           <button class="btn btn-sm" onclick="renameUser('${u.id}')" title="Edit name"><i class="fa-solid fa-pen"></i></button>
           <button class="btn btn-sm" onclick="resetPw('${u.id}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
           <button class="btn btn-sm" onclick="forceLogout('${u.id}')" title="Sign out everywhere"><i class="fa-solid fa-right-from-bracket"></i></button>
@@ -42,6 +43,10 @@ async function refresh() {
   const hs = USERS.filter(u => u.role === 'handler'), rs = USERS.filter(u => u.role === 'rider');
   document.getElementById('link-handler').innerHTML = hs.map(h => `<option value="${h.id}">${esc(h.full_name)}</option>`).join('');
   document.getElementById('link-rider').innerHTML = rs.map(r => `<option value="${r.id}">${esc(r.full_name)}</option>`).join('');
+  const riderSel = document.querySelector('[name=rider]');
+  if (riderSel) riderSel.innerHTML = rs.length
+    ? rs.map(r => `<option value="${r.id}">${esc(r.full_name)}${r.enduser_class ? ' — ' + esc(r.enduser_class) : ''}</option>`).join('')
+    : '<option value="">No riders yet — create one first</option>';
 
   document.getElementById('vehicles').innerHTML = VEHICLES.map(v => `
     <tr><td style="display:flex;align-items:center;gap:9px">
@@ -124,6 +129,43 @@ function openPhotoModal(kind, id, label) {
     toastMsg('Photo saved', label);
     if (kind === 'class') loadVehicleClasses(); else refresh();
   });
+}
+
+async function submitAdminRide(ev) {
+  ev.preventDefault();
+  const f = ev.target;
+  if (!f.rider.value) return toastMsg('Pick a rider first', 'Choose who this ride is for.');
+  const body = {
+    enduser_id: f.rider.value,
+    pickup_location_id: f.pickup.value || null, dropoff_location_id: f.dropoff.value || null,
+    pickup_text: f.pickup.value ? null : f.pickup_text.value || null,
+    dropoff_text: f.dropoff.value ? null : f.dropoff_text.value || null,
+    scheduled_at: f.when.value ? new Date(f.when.value).toISOString() : null,
+    party_size: parseInt(f.party.value, 10), round_trip: f.round_trip.checked,
+    ada_required: f.ada.checked, notes: f.notes.value || null,
+  };
+  const { error } = await api('/rides', 'POST', body);
+  if (error) return toastMsg('Could not create ride', error);
+  toastMsg('Ride created', 'Dispatch has been notified.');
+  f.pickup_text.value = ''; f.dropoff_text.value = ''; f.pickup.value = ''; f.dropoff.value = '';
+  f.when.value = ''; f.notes.value = ''; f.round_trip.checked = false; f.ada.checked = false;
+}
+
+// Admin "view as" a rider or handler — mints that user's real session and
+// switches into it, stashing the admin's own token so they can return
+// via the banner rides-ui.js shows on every portal page while active.
+async function impersonate(id) {
+  const u = USERS.find(x => x.id === id);
+  if (!u) return;
+  const ok = await confirmModal(`View the app as ${u.full_name} (${u.role})? You can return to Admin at any time.`,
+    { title: 'View as user', danger: false, confirmLabel: 'View as' });
+  if (!ok) return;
+  const { data, error } = await api(`/profiles/${id}/impersonate`, 'POST');
+  if (error) return toastMsg('Could not view as user', error);
+  sessionStorage.setItem('admin_return_token', getToken());
+  sessionStorage.setItem('admin_return_profile', JSON.stringify(getProfile()));
+  saveSession(data.token, data.profile);
+  window.location.href = data.portal;
 }
 
 async function createUser(ev) {
@@ -297,6 +339,11 @@ async function loadAppLogs(level) {
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
   loadVehicleClasses(); // populates the Add-vehicle class dropdown even before Settings is opened
+  const { data: locs } = await api('/locations');
+  LOCS = locs || [];
+  const pickupSel = document.querySelector('[name=pickup]'), dropoffSel = document.querySelector('[name=dropoff]');
+  if (pickupSel) pickupSel.innerHTML = locationOptions(LOCS, 'Choose a pickup point…');
+  if (dropoffSel) dropoffSel.innerHTML = locationOptions(LOCS, 'Choose a destination…');
   refresh();
   if (typeof initPushNotifications === 'function') initPushNotifications();
 })();

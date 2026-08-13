@@ -15,9 +15,12 @@
 const { app } = require('@azure/functions');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
-const { json, err, requireAuth, requireRole, ROLES, logAudit } = require('../middleware');
+const { json, err, requireAuth, requireRole, ROLES, logAudit, signSession } = require('../middleware');
 
 const SAFE = `id, email, first_name, last_name, full_name, phone_mobile, role, enduser_class, photo_url, status, sms_consent, created_at`;
+// Admin "view as" — only makes sense for the two roles whose whole
+// screen is scoped to a single person's own data.
+const IMPERSONATE_PORTAL = { rider: '/pages/rider.html', handler: '/pages/handler.html' };
 
 app.http('me', {
   methods: ['GET'], authLevel: 'anonymous', route: 'me',
@@ -107,6 +110,28 @@ app.http('profilesUpdate', {
     if (body.password)
       await logAudit(request, { profile_id: user.sub, email: user.email, action: 'password_reset', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
     return json(r.rows[0]);
+  },
+});
+
+// Admin "view as" a rider or handler — mints a real session token for
+// that account so the admin sees exactly what they see. The admin's own
+// token is preserved client-side (js/admin.js) so they can return without
+// re-authenticating. Every use is written to the audit log.
+app.http('profileImpersonate', {
+  methods: ['POST'], authLevel: 'anonymous', route: 'profiles/{id}/impersonate',
+  handler: async (request) => {
+    const { user, error, status } = await requireRole(request, 'admin');
+    if (error) return err(error, status);
+    const r = await query(`SELECT * FROM public.profiles WHERE id = $1 AND status = 'active'`, [request.params.id]);
+    const target = r.rows[0];
+    if (!target) return err('Not found', 404);
+    if (!IMPERSONATE_PORTAL[target.role]) return err('Can only view as a rider or handler', 400);
+    await logAudit(request, {
+      profile_id: user.sub, email: user.email, full_name: null, action: 'impersonate_start',
+      detail: `admin <${user.email}> viewing as ${target.full_name} <${target.email}> (${target.role})`,
+    });
+    const { password_hash, token_version, ...safe } = target;
+    return json({ token: signSession(target), profile: safe, portal: IMPERSONATE_PORTAL[target.role] });
   },
 });
 

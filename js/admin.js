@@ -3,6 +3,20 @@ const me = requireLogin('admin');
 let USERS = [], VEHICLES = [], VCLASSES = [], LOCS = [];
 const LEVEL_BADGE = { info: 'badge-neutral', warn: 'badge-pending', error: 'badge-no' };
 
+// Same live map as Command Center, shrunk to fit the dashboard — no
+// Recenter/Zoom-to-city controls here, just a glance at the fleet.
+const adminMap = createLiveMap({
+  fallbackId: 'admin-map-fallback', realId: 'admin-map-real', vehLayerId: 'admin-veh-layer',
+  center: [-95.4103, 29.6857], zoom: 13,
+});
+async function refreshAdminMap() {
+  const [{ data: rides }, { data: positions }] = await Promise.all([api('/rides'), api('/positions/latest')]);
+  const live = (rides || []).filter(r => ['assigned', 'en_route', 'arrived', 'in_progress'].includes(r.status));
+  const rideByVehicle = {};
+  live.forEach(r => { if (r.vehicle_id) rideByVehicle[r.vehicle_id] = r; });
+  adminMap.refresh(positions || [], rideByVehicle);
+}
+
 // ── View switching (Dashboard / Settings) ───────────────────────
 const VIEW_TITLES = {
   dashboard: ['Admin', 'Users, fleet, and system settings'],
@@ -159,9 +173,43 @@ function openPhotoModal(kind, id, label) {
   });
 }
 
-async function submitAdminRide(ev) {
-  ev.preventDefault();
-  const f = ev.target;
+// Create-a-ride moved off the dashboard and into a "Create ride" nav
+// button (top of every admin view) — a modal instead of a permanent
+// card, since it's an occasional action, not something that needs to
+// eat dashboard real estate on every visit.
+function rideModalFieldsHtml() {
+  const rs = USERS.filter(u => u.role === 'rider');
+  const riderOptions = rs.length
+    ? rs.map(r => `<option value="${r.id}">${esc(r.full_name)}${r.enduser_class ? ' — ' + esc(r.enduser_class) : ''}</option>`).join('')
+    : '<option value="">No riders yet — create one first</option>';
+  return `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rider</label><select class="form-input" name="rider" required>${riderOptions}</select></div>
+      <div class="form-group"><label class="form-label">Party size</label>
+        <select class="form-input" name="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Pickup</label>
+        <select class="form-input" name="pickup">${locationOptions(LOCS, 'Choose a pickup point…')}</select>
+        <input class="form-input" name="pickup_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+      <div class="form-group"><label class="form-label">Drop-off</label>
+        <select class="form-input" name="dropoff">${locationOptions(LOCS, 'Choose a destination…')}</select>
+        <input class="form-input" name="dropoff_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date &amp; time (blank = ASAP)</label><input class="form-input" type="datetime-local" name="when" /></div>
+      <div class="form-group"><label class="form-label">Notes for dispatch (optional)</label><input class="form-input" name="notes" placeholder="e.g. meeting the group at valet stand B" /></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Round trip — driver waits and returns</span>
+        <label class="switch"><input type="checkbox" name="round_trip"><span class="slider"></span></label></div>
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Wheelchair-accessible vehicle needed</span>
+        <label class="switch"><input type="checkbox" name="ada"><span class="slider"></span></label></div>
+    </div>`;
+}
+async function openCreateRideModal() {
+  const f = await formModal('Create a ride', rideModalFieldsHtml(), { icon: 'fa-car-side', submitLabel: 'Submit request' });
+  if (!f) return;
   if (!f.rider.value) return toastMsg('Pick a rider first', 'Choose who this ride is for.');
   const body = {
     enduser_id: f.rider.value,
@@ -175,8 +223,6 @@ async function submitAdminRide(ev) {
   const { error } = await api('/rides', 'POST', body);
   if (error) return toastMsg('Could not create ride', error);
   toastMsg('Ride created', 'Dispatch has been notified.');
-  f.pickup_text.value = ''; f.dropoff_text.value = ''; f.pickup.value = ''; f.dropoff.value = '';
-  f.when.value = ''; f.notes.value = ''; f.round_trip.checked = false; f.ada.checked = false;
 }
 
 // Admin "view as" a rider or handler — mints that user's real session and
@@ -398,15 +444,32 @@ async function loadAppLogs(level) {
     : '<tr><td colspan="5" class="small muted">No application logs for this filter.</td></tr>';
 }
 
+// Highlights the sidenav item for whichever dashboard section is
+// currently in view while scrolling — purely cosmetic, the anchor
+// links work fine without it.
+function initSidenavScrollspy() {
+  const items = document.querySelectorAll('.admin-sidenav-item');
+  const sections = document.querySelectorAll('.admin-section');
+  if (!items.length || !sections.length || typeof IntersectionObserver === 'undefined') return;
+  const byId = {};
+  items.forEach(i => { byId[i.getAttribute('href').slice(1)] = i; });
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      const item = byId[e.target.id];
+      if (item) item.classList.toggle('active', e.isIntersecting);
+    });
+  }, { rootMargin: '-84px 0px -70% 0px' });
+  sections.forEach(s => obs.observe(s));
+}
+
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
   loadVehicleClasses(); // populates the Add-vehicle class dropdown even before Settings is opened
   const { data: locs } = await api('/locations');
   LOCS = locs || [];
-  const pickupSel = document.querySelector('[name=pickup]'), dropoffSel = document.querySelector('[name=dropoff]');
-  if (pickupSel) pickupSel.innerHTML = locationOptions(LOCS, 'Choose a pickup point…');
-  if (dropoffSel) dropoffSel.innerHTML = locationOptions(LOCS, 'Choose a destination…');
   refresh();
+  initSidenavScrollspy();
+  adminMap.init().finally(() => { refreshAdminMap(); setInterval(refreshAdminMap, 5000); });
   // Nav links elsewhere point Settings at admin.html#settings since it's
   // an in-page view, not its own URL — land there directly on load.
   if (window.location.hash === '#settings') setView('settings');

@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Oswald:wght@400;500;600;700&family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=2" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" />
@@ -22,6 +23,7 @@
     </div>
     <div class="topnav-links">
       <button class="nav-item active" id="nav-dashboard" onclick="setView('dashboard')"><i class="fa-solid fa-gauge"></i><span>Dashboard</span></button>
+      <button class="nav-item" onclick="openCreateRideModal()"><i class="fa-solid fa-car-side"></i><span>Create ride</span></button>
       <a class="nav-item" href="/pages/dispatch.html" style="text-decoration:none"><i class="fa-solid fa-tower-broadcast"></i><span>Dispatch</span></a>
       <a class="nav-item" href="/pages/command.html" style="text-decoration:none"><i class="fa-solid fa-satellite-dish"></i><span>Command Center</span></a>
       <button class="nav-item" id="nav-settings" onclick="setView('settings')"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
@@ -40,109 +42,154 @@
 
 <!-- ═══════════════════════ DASHBOARD VIEW ═══════════════════════ -->
 <div class="view active" id="view-dashboard">
-<div class="card" style="margin-bottom:16px">
-  <div class="section-title"><i class="fa-solid fa-car-side"></i> Create a ride</div>
-  <div class="small muted" style="margin:-6px 0 14px">Book on behalf of any rider — dispatch is notified the same as a normal request.</div>
-  <form onsubmit="submitAdminRide(event)">
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Rider</label>
-        <select class="form-input" name="rider" required><option value="">Loading riders…</option></select></div>
-      <div class="form-group"><label class="form-label">Party size</label>
-        <select class="form-input" name="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Pickup</label>
-        <select class="form-input" name="pickup"></select>
-        <input class="form-input" name="pickup_text" placeholder="…or type an address" style="margin-top:6px" /></div>
-      <div class="form-group"><label class="form-label">Drop-off</label>
-        <select class="form-input" name="dropoff"></select>
-        <input class="form-input" name="dropoff_text" placeholder="…or type an address" style="margin-top:6px" /></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Date &amp; time (blank = ASAP)</label><input class="form-input" type="datetime-local" name="when" /></div>
-      <div class="form-group"><label class="form-label">Notes for dispatch (optional)</label><input class="form-input" name="notes" placeholder="e.g. meeting the group at valet stand B" /></div>
-    </div>
-    <div class="form-row">
-      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Round trip — driver waits and returns</span>
-        <label class="switch"><input type="checkbox" name="round_trip"><span class="slider"></span></label></div>
-      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Wheelchair-accessible vehicle needed</span>
-        <label class="switch"><input type="checkbox" name="ada"><span class="slider"></span></label></div>
-    </div>
-    <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit request</button>
-  </form>
-</div>
-<div class="bento-grid">
-  <div class="card bento-5">
-    <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>
-    <form onsubmit="createUser(event)">
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" required /></div>
-        <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" required /></div>
+<div class="admin-layout">
+  <nav class="admin-sidenav">
+    <a href="#sec-map" class="admin-sidenav-item"><i class="fa-solid fa-map-location-dot"></i> Live map</a>
+    <a href="#sec-users" class="admin-sidenav-item"><i class="fa-solid fa-users"></i> Users</a>
+    <a href="#sec-handlers" class="admin-sidenav-item"><i class="fa-solid fa-people-arrows"></i> Handlers</a>
+    <a href="#sec-fleet" class="admin-sidenav-item"><i class="fa-solid fa-truck"></i> Fleet</a>
+  </nav>
+  <div class="admin-sections">
+
+    <section id="sec-map" class="card admin-section">
+      <div class="section-title"><i class="fa-solid fa-map-location-dot"></i> Live map</div>
+      <div class="admin-map">
+        <div id="admin-map-real" style="display:none;height:100%;border-radius:var(--r2);overflow:hidden"></div>
+        <div id="admin-map-fallback" class="map-wrap" style="height:100%">
+          <svg id="admin-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+            <!-- Stylized reference grid — not a literal street map, same board as Command Center. -->
+            <line x1="0" y1="60" x2="1000" y2="60" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="160" x2="1000" y2="160" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="260" x2="1000" y2="260" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="360" x2="1000" y2="360" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="460" x2="1000" y2="460" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="555" x2="1000" y2="555" class="map-road" stroke-width="8"/>
+            <line x1="90" y1="0" x2="90" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="220" y1="0" x2="220" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="365" y1="0" x2="365" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="640" y1="0" x2="640" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="785" y1="0" x2="785" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="920" y1="0" x2="920" y2="600" class="map-road" stroke-width="8"/>
+            <line x1="0" y1="595" x2="1000" y2="70" class="map-road map-road-major" stroke-width="14"/>
+
+            <rect x="120" y="18" width="60" height="30" class="map-bldg"/>
+            <rect x="250" y="85" width="55" height="42" class="map-bldg"/>
+            <rect x="420" y="25" width="70" height="22" class="map-bldg"/>
+            <rect x="680" y="95" width="42" height="55" class="map-bldg"/>
+            <rect x="820" y="35" width="55" height="32" class="map-bldg"/>
+            <rect x="150" y="185" width="50" height="55" class="map-bldg"/>
+            <rect x="450" y="195" width="80" height="40" class="map-bldg"/>
+            <rect x="850" y="180" width="50" height="60" class="map-bldg"/>
+            <rect x="120" y="290" width="60" height="42" class="map-bldg"/>
+            <rect x="800" y="285" width="65" height="45" class="map-bldg"/>
+            <rect x="140" y="405" width="55" height="35" class="map-bldg"/>
+            <rect x="850" y="415" width="45" height="55" class="map-bldg"/>
+            <rect x="270" y="470" width="45" height="30" class="map-bldg"/>
+
+            <rect x="390" y="370" width="220" height="160" rx="8" class="map-lot"/>
+            <ellipse cx="500" cy="450" rx="80" ry="55" class="map-bldg" style="fill:#122540"/>
+            <circle cx="500" cy="450" r="6" class="pin-pickup"/>
+            <text x="500" y="345" text-anchor="middle" class="map-label">NRG STADIUM</text>
+            <text x="420" y="510" text-anchor="middle" class="map-label-sm">SOUTH LOT</text>
+            <text x="580" y="400" text-anchor="middle" class="map-label-sm">NORTH LOT</text>
+            <text x="60" y="105" text-anchor="middle" class="map-label-sm">MAIN GATE</text>
+            <text x="940" y="130" text-anchor="middle" class="map-label-sm">VIP ENTRANCE</text>
+
+            <g id="admin-veh-layer"></g>
+          </svg>
+        </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" required /></div>
-        <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" placeholder="713 555 0100" /></div>
+    </section>
+
+    <section id="sec-users" class="admin-section">
+      <div class="bento-grid">
+        <div class="card bento-5">
+          <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>
+          <form onsubmit="createUser(event)">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" required /></div>
+              <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" required /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" required /></div>
+              <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" placeholder="713 555 0100" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Role</label>
+                <select class="form-input" name="role" onchange="roleChanged(this)">
+                  <option value="rider">Rider (VIP / end user)</option><option value="handler">Handler / EA</option>
+                  <option value="driver">Driver</option><option value="dispatch">Dispatch (12 h session)</option>
+                  <option value="admin">Admin (24 h session)</option>
+                </select></div>
+              <div class="form-group" id="class-row"><label class="form-label">Rider class</label>
+                <select class="form-input" name="uclass"><option value="vip">VIP</option><option value="executive">Executive</option>
+                <option value="performer">Performer</option><option value="guest">Guest</option></select></div>
+            </div>
+            <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
+              <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
+            <div class="small muted" style="margin:-6px 0 12px">Command Center's kiosk PIN isn't a user account — set it under Settings → Command Center kiosk.</div>
+            <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
+              <input class="form-input" name="photo" placeholder="https://…" /></div>
+            <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">SMS consent on file</span>
+              <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>
+            <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-user-plus"></i> Create</button>
+          </form>
+        </div>
+        <div class="card bento-7" style="padding:8px 14px 4px;overflow-x:auto">
+          <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-users"></i> Users</div>
+          <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Mobile</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody id="users"></tbody></table>
+        </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Role</label>
-          <select class="form-input" name="role" onchange="roleChanged(this)">
-            <option value="rider">Rider (VIP / end user)</option><option value="handler">Handler / EA</option>
-            <option value="driver">Driver</option><option value="dispatch">Dispatch (12 h session)</option>
-            <option value="admin">Admin (24 h session)</option>
-          </select></div>
-        <div class="form-group" id="class-row"><label class="form-label">Rider class</label>
-          <select class="form-input" name="uclass"><option value="vip">VIP</option><option value="executive">Executive</option>
-          <option value="performer">Performer</option><option value="guest">Guest</option></select></div>
+    </section>
+
+    <section id="sec-handlers" class="admin-section">
+      <div class="bento-grid">
+        <div class="card bento-5">
+          <div class="section-title"><i class="fa-solid fa-people-arrows"></i> Link handler → rider</div>
+          <form onsubmit="linkHandler(event)" class="form-row" style="align-items:end">
+            <div class="form-group"><label class="form-label">Handler</label><select class="form-input" id="link-handler"></select></div>
+            <div class="form-group"><label class="form-label">Rider</label><select class="form-input" id="link-rider"></select></div>
+            <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-link"></i> Link</button>
+          </form>
+        </div>
+        <div class="card bento-7" style="padding:8px 14px 4px;overflow-x:auto">
+          <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-people-arrows"></i> Handler assignments</div>
+          <table class="tbl"><tbody id="links"></tbody></table>
+        </div>
       </div>
-      <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
-        <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
-      <div class="small muted" style="margin:-6px 0 12px">Command Center's kiosk PIN isn't a user account — set it under Settings → Command Center kiosk.</div>
-      <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
-        <input class="form-input" name="photo" placeholder="https://…" /></div>
-      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">SMS consent on file</span>
-        <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>
-      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-user-plus"></i> Create</button>
-    </form>
-    <div class="section-title" style="margin-top:22px"><i class="fa-solid fa-people-arrows"></i> Link handler → rider</div>
-    <form onsubmit="linkHandler(event)" class="form-row" style="align-items:end">
-      <div class="form-group"><label class="form-label">Handler</label><select class="form-input" id="link-handler"></select></div>
-      <div class="form-group"><label class="form-label">Rider</label><select class="form-input" id="link-rider"></select></div>
-      <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-link"></i> Link</button>
-    </form>
-    <div class="section-title" style="margin-top:22px"><i class="fa-solid fa-truck"></i> Add vehicle</div>
-    <form onsubmit="createVehicle(event)">
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Label</label><input class="form-input" name="label" placeholder="Suburban U4" required /></div>
-        <div class="form-group"><label class="form-label">Plate</label><input class="form-input" name="plate" /></div>
+    </section>
+
+    <section id="sec-fleet" class="admin-section">
+      <div class="bento-grid">
+        <div class="card bento-5">
+          <div class="section-title"><i class="fa-solid fa-truck"></i> Add vehicle</div>
+          <form onsubmit="createVehicle(event)">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Label</label><input class="form-input" name="label" placeholder="Suburban U4" required /></div>
+              <div class="form-group"><label class="form-label">Plate</label><input class="form-input" name="plate" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Capacity (excl. driver)</label><input class="form-input" type="number" min="1" name="capacity" value="6" /></div>
+              <div class="form-group"><label class="form-label">Class</label>
+                <select class="form-input" name="vclass" onchange="vclassChanged(this)"></select></div>
+            </div>
+            <div class="form-group"><label class="form-label">Description (riders see this)</label><input class="form-input" name="color" placeholder="White Suburban" /></div>
+            <div class="small muted" style="margin:-6px 0 12px">Add or edit vehicle classes, and vehicle/class photos, under Settings.</div>
+            <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-plus"></i> Add vehicle</button>
+          </form>
+        </div>
+        <div class="card bento-7" style="padding:8px 14px 4px;overflow-x:auto">
+          <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-truck"></i> Fleet</div>
+          <table class="tbl"><thead><tr><th>Vehicle</th><th>Plate</th><th>Cap</th><th>Class</th><th>Status</th><th style="text-align:right"></th></tr></thead>
+          <tbody id="vehicles"></tbody></table>
+        </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Capacity (excl. driver)</label><input class="form-input" type="number" min="1" name="capacity" value="6" /></div>
-        <div class="form-group"><label class="form-label">Class</label>
-          <select class="form-input" name="vclass" onchange="vclassChanged(this)"></select></div>
+      <div class="card card-sm" style="margin-top:16px">
+        <span class="small muted"><i class="fa-solid fa-inbox"></i> Dispatch console: <a href="/pages/dispatch.html">open the queue &amp; live board</a></span>
       </div>
-      <div class="form-group"><label class="form-label">Description (riders see this)</label><input class="form-input" name="color" placeholder="White Suburban" /></div>
-      <div class="small muted" style="margin:-6px 0 12px">Add or edit vehicle classes, and vehicle/class photos, under Settings.</div>
-      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-plus"></i> Add vehicle</button>
-    </form>
-  </div>
-  <div class="bento-7">
-    <div class="card" style="padding:8px 14px 4px;overflow-x:auto">
-      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-users"></i> Users</div>
-      <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Mobile</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
-      <tbody id="users"></tbody></table>
-    </div>
-    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
-      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-people-arrows"></i> Handler assignments</div>
-      <table class="tbl"><tbody id="links"></tbody></table>
-    </div>
-    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
-      <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-truck"></i> Fleet</div>
-      <table class="tbl"><thead><tr><th>Vehicle</th><th>Plate</th><th>Cap</th><th>Class</th><th>Status</th><th style="text-align:right"></th></tr></thead>
-      <tbody id="vehicles"></tbody></table>
-    </div>
-    <div class="card card-sm" style="margin-top:16px">
-      <span class="small muted"><i class="fa-solid fa-inbox"></i> Dispatch console: <a href="/pages/dispatch.html">open the queue &amp; live board</a></span>
-    </div>
+    </section>
+
   </div>
 </div>
 </div>
@@ -227,10 +274,12 @@
     <footer class="site-footer">8 Second Rides · Houston Livestock Show and Rodeo</footer>
   </div>
 </div>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/push.js"></script>
 <script src="/js/rides-ui.js"></script>
+<script src="/js/livemap.js"></script>
 <script src="/js/admin.js"></script>
 </body>
 </html>

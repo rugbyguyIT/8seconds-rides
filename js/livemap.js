@@ -1,0 +1,155 @@
+// ─────────────────────────────────────────────────────────────
+// Shared live vehicle-position map — one real map (Mapbox GL) with a
+// stylized SVG fallback when no MAPBOX_PUBLIC_TOKEN is configured.
+// Used by Command Center (full-size, with Recenter/Zoom-to-city
+// controls) and the Admin dashboard (smaller, same behavior) so both
+// stay pixel-for-pixel identical instead of drifting apart as two
+// copies of the same code.
+//
+// createLiveMap({
+//   fallbackId, realId,        required — the two map containers
+//   vehLayerId,                required — <g> inside the fallback SVG
+//   controlsId,                optional — Recenter/Zoom-to-city button row
+//   center: [lng, lat],        default camera center (Recenter target)
+//   bounds: [[swLng,swLat],[neLng,neLat]], "Zoom to city" target
+//   zoom, recenterZoom,        default 13 / 15
+// }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), isReal() }
+// ─────────────────────────────────────────────────────────────
+const RIDE_VEH_STATE = {
+  assigned:    { fill: 'var(--orange)', tag: 'TO PICKUP', ring: true },
+  en_route:    { fill: 'var(--orange)', tag: 'TO PICKUP', ring: true },
+  arrived:     { fill: 'var(--blue)',   tag: 'WAITING',   ring: true },
+  in_progress: { fill: 'var(--green)',  tag: 'ONBOARD',   ring: false },
+};
+
+function createLiveMap(cfg) {
+  let realMap = null;
+  const mapMarkers = {};      // vehicle_id -> mapboxgl.Marker, kept across refreshes
+  let fleetAutoFitDone = false; // only auto-fit the camera to the fleet once — after that Recenter/Zoom to city are the only things that move it
+
+  // Lat/lng -> local SVG coordinates. Auto-fits to wherever the fleet
+  // actually is (padded) so this works regardless of the venue's real
+  // coordinates, with a sane Houston-area fallback when nothing has
+  // reported in yet.
+  function computeBbox(points) {
+    const lats = points.map(p => p.lat).filter(v => typeof v === 'number' && isFinite(v));
+    const lngs = points.map(p => p.lng).filter(v => typeof v === 'number' && isFinite(v));
+    let minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    let minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    if (!lats.length || !isFinite(minLat) || (maxLat - minLat < 0.002 && maxLng - minLng < 0.002)) {
+      return { minLat: 29.60, maxLat: 29.76, minLng: -95.48, maxLng: -95.34 };
+    }
+    const padLat = Math.max((maxLat - minLat) * 0.28, 0.01);
+    const padLng = Math.max((maxLng - minLng) * 0.28, 0.01);
+    return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
+  }
+  function toXY(lat, lng, bbox) {
+    const x = ((lng - bbox.minLng) / (bbox.maxLng - bbox.minLng)) * 1000;
+    const y = (1 - (lat - bbox.minLat) / (bbox.maxLat - bbox.minLat)) * 600;
+    return { x: Math.max(24, Math.min(976, x)), y: Math.max(24, Math.min(576, y)) };
+  }
+  function vehicleMarkup(pos, ride, bbox) {
+    const { x, y } = toXY(pos.lat, pos.lng, bbox);
+    const state = ride && RIDE_VEH_STATE[ride.status];
+    const fill = state ? state.fill : '#3d5a7c';
+    const tag = state ? state.tag : 'IDLE';
+    const stale = !!pos.stale && !ride;
+    return `<g class="veh${stale ? ' veh-stale' : ''}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+      ${state && state.ring ? `<circle class="veh-ring" r="9" style="stroke:${fill}"/>` : ''}
+      <circle class="veh-dot" r="7" style="fill:${fill}"/>
+      <rect x="-36" y="-30" width="72" height="15" rx="4" class="veh-tag-bg"/>
+      <text x="0" y="-19" text-anchor="middle" class="veh-tag">${esc(pos.label)}</text>
+      <rect x="-28" y="12" width="56" height="13" rx="4" class="veh-tag-bg" style="fill:${fill};opacity:.92"/>
+      <text x="0" y="21.5" text-anchor="middle" class="veh-tag" style="font-size:7.5px">${tag}</text>
+    </g>`;
+  }
+
+  // Real map (Mapbox GL) marker sync — actual HTML markers pinned to
+  // real lat/lng instead of a hand-projected SVG dot, so it's real
+  // streets/imagery underneath.
+  function updateRealMapMarkers(pos, rideByVehicle) {
+    const seen = new Set();
+    pos.forEach((p) => {
+      seen.add(p.vehicle_id);
+      const ride = rideByVehicle[p.vehicle_id];
+      const state = ride && RIDE_VEH_STATE[ride.status];
+      const fill = state ? state.fill : '#3d5a7c';
+      const tag = state ? state.tag : (p.stale ? 'STALE' : 'IDLE');
+      let m = mapMarkers[p.vehicle_id];
+      if (!m) {
+        const el = document.createElement('div');
+        el.className = 'mb-veh-marker';
+        el.innerHTML = `<div class="mb-veh-label">${esc(p.label)}</div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div>`;
+        m = new mapboxgl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(realMap);
+        mapMarkers[p.vehicle_id] = m;
+      } else {
+        m.setLngLat([p.lng, p.lat]);
+      }
+      const el = m.getElement();
+      const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag');
+      dot.style.background = fill; dot.classList.toggle('stale', !!p.stale && !ride);
+      tagEl.textContent = tag; tagEl.style.background = fill;
+    });
+    Object.keys(mapMarkers).forEach((id) => {
+      if (!seen.has(id)) { mapMarkers[id].remove(); delete mapMarkers[id]; }
+    });
+    // Auto-fit to the fleet once, the first time positions show up, so
+    // the map opens on something sensible. After that the camera is
+    // manual-only (Recenter / Zoom to city) so it doesn't keep
+    // snapping back out from under whoever's looking at it.
+    if (pos.length && !fleetAutoFitDone) {
+      fleetAutoFitDone = true;
+      const bbox = computeBbox(pos);
+      realMap.fitBounds([[bbox.minLng, bbox.minLat], [bbox.maxLng, bbox.maxLat]], { padding: 40, duration: 400, maxZoom: 16 });
+    }
+  }
+
+  // Loads a public Mapbox token from the server (never committed/hardcoded
+  // — see api/src/functions/geocode.js mapPublicToken) and, if one is
+  // configured, swaps the stylized SVG board for a real interactive map.
+  // If it's not configured yet, the SVG board keeps working exactly as
+  // before — nothing regresses for venues that haven't set it up.
+  async function init() {
+    if (typeof mapboxgl === 'undefined') return;
+    const { data } = await api('/config/map-token');
+    const token = data && data.token;
+    if (!token) return;
+    mapboxgl.accessToken = token;
+    document.getElementById(cfg.fallbackId).style.display = 'none';
+    document.getElementById(cfg.realId).style.display = 'block';
+    if (cfg.controlsId) {
+      const c = document.getElementById(cfg.controlsId);
+      if (c) c.style.display = 'flex';
+    }
+    realMap = new mapboxgl.Map({
+      container: cfg.realId,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: cfg.center, // replaced by fitBounds once vehicles report in
+      zoom: cfg.zoom || 13,
+      attributionControl: false,
+    });
+    realMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+  }
+
+  function refresh(pos, rideByVehicle) {
+    pos = pos || []; rideByVehicle = rideByVehicle || {};
+    if (realMap) {
+      updateRealMapMarkers(pos, rideByVehicle);
+    } else {
+      const bbox = computeBbox(pos);
+      const layer = document.getElementById(cfg.vehLayerId);
+      if (layer) layer.innerHTML = pos.map(p => vehicleMarkup(p, rideByVehicle[p.vehicle_id], bbox)).join('');
+    }
+  }
+
+  function recenter() {
+    if (!realMap || !cfg.center) return;
+    realMap.flyTo({ center: cfg.center, zoom: cfg.recenterZoom || 15, duration: 700 });
+  }
+  function zoomToCity() {
+    if (!realMap || !cfg.bounds) return;
+    realMap.fitBounds(cfg.bounds, { padding: 30, duration: 900 });
+  }
+
+  return { init, refresh, recenter, zoomToCity, isReal: () => !!realMap };
+}

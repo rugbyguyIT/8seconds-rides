@@ -25,13 +25,13 @@
   const turnCount = 8;
   const turnAmount = (360 / turnCount) * TO_RAD;
   const turnChanceRange = 58;
-  // A modest bump over the original demo's values (0.4/0.8) — 4x
-  // turned out way too fast once the draw fix below made the motion
-  // actually read as continuous lines instead of choppy dot-stamps
-  // (the choppiness was what made the original speed look slow, not
-  // the speed itself). This is closer to ~1.5x.
-  const baseSpeed = 0.6;
-  const rangeSpeed = 1.0;
+  // Well under the original demo's values (0.4/0.8) now — two
+  // straight rounds of "still way too fast" means this needed a real
+  // cut, not another nudge. Paired with the frame-rate cap below
+  // (previously uncapped rAF, so it ran visibly faster on 120Hz+
+  // displays than on 60Hz — same px/frame speed, more frames/sec).
+  const baseSpeed = 0.22;
+  const rangeSpeed = 0.4;
   const baseTTL = 100;
   const rangeTTL = 260;
   const baseWidth = 2;
@@ -40,7 +40,14 @@
   const rangeHue = 42;  // ...through amber/gold
   const strokeAlpha = 0.4; // now the whole scene (solid navy backdrop), not a subtle overlay on a photo
 
-  let container, canvas, ctx, center, tick, pipeProps, raf;
+  let container, canvas, ctx, center, tick, pipeProps, raf, lastStepTime;
+  // requestAnimationFrame fires at the display's refresh rate (120Hz+
+  // on most modern phones/laptops), but the speed constants above are
+  // a fixed px/step — uncapped, that's 2x+ more steps/sec on a 120Hz
+  // screen than a 60Hz one, i.e. visibly faster for no code reason.
+  // Stepping the simulation on a real-time clock instead of every rAF
+  // tick keeps the pace the same everywhere.
+  const STEP_MS = 1000 / 60;
 
   function setup() {
     container = document.querySelector('.auth-bg-pipes');
@@ -51,10 +58,11 @@
     ctx = canvas.getContext('2d');
     center = [0, 0];
     tick = 0;
+    lastStepTime = 0;
     resize();
     initPipes();
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; // leave it static — no rAF loop
-    draw();
+    raf = window.requestAnimationFrame(draw); // always via rAF so `draw` gets a real timestamp on frame 1
   }
 
   function initPipes() {
@@ -136,8 +144,20 @@
     center[1] = 0.5 * canvas.height;
   }
 
-  function draw() {
-    updatePipes();
+  function draw(now) {
+    // Catch up in whole steps if a tab was backgrounded/throttled, but
+    // cap it so an alt-tab away doesn't dump a huge burst of motion on
+    // return — just resume smoothly instead.
+    if (lastStepTime) {
+      let guard = 5;
+      while (now - lastStepTime >= STEP_MS && guard-- > 0) {
+        updatePipes();
+        lastStepTime += STEP_MS;
+      }
+      if (now - lastStepTime > STEP_MS) lastStepTime = now;
+    } else {
+      lastStepTime = now;
+    }
     raf = window.requestAnimationFrame(draw);
   }
 

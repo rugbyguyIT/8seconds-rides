@@ -1,11 +1,12 @@
 // ───────────────────────────────────────────────────────────
-// Ambient glow-trail overlay for the login screen background photo.
-// Adapted from the "Pipes" demo (index5.html / js/pipeline.js) in
-// Sean Free's Ambient Canvas Backgrounds (Codrops), credited per its
-// license. The original fills a solid background each frame; this
-// version never does — it only ever draws low-alpha glowing strokes
-// on a transparent canvas, so the photo underneath always shows
-// through and the trails just add motion/atmosphere on top of it.
+// Ambient glow-trail background for the login screen. Adapted from
+// the "Pipes" demo (index5.html / js/pipeline.js) in Sean Free's
+// Ambient Canvas Backgrounds (Codrops), credited per its license.
+// The original fills a solid black background each frame; this
+// version never does — it draws low-alpha glowing strokes on a
+// transparent canvas that sits directly over the app's solid navy
+// backdrop (.auth-wrap), so the embers are the whole scene rather
+// than an overlay on a stock photo.
 // Retinted from the demo's default cyan to rodeo orange/gold.
 // ─────────────────────────────────────────────────────
 (function () {
@@ -18,7 +19,7 @@
   const rand = (n) => n * random();
   const fadeInOut = (t, m) => { const hm = 0.5 * m; return abs((t + hm) % m - hm) / hm; };
 
-  const pipeCount = 22;
+  const pipeCount = 30;
   const pipePropCount = 8;
   const pipePropsLength = pipeCount * pipePropCount;
   const turnCount = 8;
@@ -29,10 +30,10 @@
   const baseTTL = 100;
   const rangeTTL = 260;
   const baseWidth = 2;
-  const rangeWidth = 3.5;
+  const rangeWidth = 4;
   const baseHue = 18;   // rodeo orange
   const rangeHue = 42;  // ...through amber/gold
-  const strokeAlpha = 0.085; // kept low — this rides on top of a busy photo, not a black canvas
+  const strokeAlpha = 0.4; // now the whole scene (solid navy backdrop), not a subtle overlay on a photo
 
   let container, canvas, ctx, center, tick, pipeProps, raf;
 

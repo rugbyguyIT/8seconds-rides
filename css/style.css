@@ -292,49 +292,45 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
   background:rgba(0,46,93,0.06);border:1px solid rgba(0,46,93,0.14);margin-bottom:16px}
 .shift-chip i{color:var(--navy);font-size:18px}
 
-/* ── Login / auth (glass) ── */
+/* ── Login / auth ──
+   Deliberately plain: a solid navy field, the animated ember-trail
+   canvas (js/pipes-bg.js) as the entire background, logo + big title
+   centered above a minimal login prompt below. No stock photo, no
+   heavy glass card — that "8secondsevents.com" look is what this
+   replaced. Rodeo-approved navy/orange stay, everything else got
+   simpler. Loosely staged after Codrops' Ambient Canvas Backgrounds
+   "Pipeline" demo (giant centered title over a full-bleed animated
+   canvas), retinted and rebuilt for this app. */
 .auth-wrap{position:relative;min-height:100vh;overflow:hidden;background:#00142f}
-/* Background image itself is set inline in index.html (a data: URI —
-   the deploy pipeline here only round-trips text files reliably, no
-   binary asset upload path, so a separate /assets/*.jpg isn't used). */
-.auth-bg-photo{position:absolute;inset:0;z-index:0;background-position:center;background-size:cover;background-repeat:no-repeat}
-.auth-bg-overlay{position:absolute;inset:0;z-index:1;
-  background:linear-gradient(135deg,rgba(0,20,48,0.72) 0%,rgba(0,46,93,0.62) 20%,rgba(0,58,116,0.55) 40%,rgba(0,46,93,0.60) 55%,rgba(100,36,8,0.58) 75%,rgba(239,118,34,0.38) 90%,rgba(190,82,10,0.48) 100%);
-  background-size:400% 400%;animation:fluidGrad 18s ease infinite}
-@keyframes fluidGrad{0%{background-position:0% 30%}25%{background-position:60% 80%}50%{background-position:100% 40%}75%{background-position:40% 0%}100%{background-position:0% 30%}}
-.auth-bg-pipes{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:screen}
-.auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;z-index:3}
-.auth-shell::before{content:'';position:absolute;inset:-20%;
-  background:radial-gradient(ellipse 55% 45% at 72% 28%,rgba(239,118,34,0.28) 0%,transparent 60%),
-  radial-gradient(ellipse 60% 50% at 18% 75%,rgba(0,46,93,0.50) 0%,transparent 55%);
-  pointer-events:none;animation:blobDrift 22s ease-in-out infinite alternate}
-@keyframes blobDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(3%,3%) scale(1.05)}}
-.auth-card{position:relative;z-index:1;width:100%;max-width:440px;background:rgba(255,255,255,0.11);
-  backdrop-filter:blur(44px) saturate(190%);-webkit-backdrop-filter:blur(44px) saturate(190%);
-  border:1px solid rgba(255,255,255,0.22);
-  box-shadow:0 0 0 1px rgba(239,118,34,0.18),0 32px 80px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.22);
-  border-radius:var(--r4);padding:44px;animation:fadeSlideUp .55s ease both}
+.auth-bg-pipes{position:absolute;inset:0;z-index:0;pointer-events:none;mix-blend-mode:screen}
+.auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;z-index:1}
+.auth-hero{position:relative;z-index:1;width:100%;max-width:460px;display:flex;flex-direction:column;align-items:center;
+  text-align:center;animation:fadeSlideUp .6s ease both}
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-.auth-logo{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:30px}
-.auth-logo-img{width:220px;height:auto;filter:drop-shadow(0 4px 20px rgba(239,118,34,0.50))}
-.auth-logo-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--orange),var(--orange2));border-radius:15px;display:flex;align-items:center;justify-content:center;
-  font-size:24px;color:#fff;font-family:'Oswald',sans-serif;font-weight:700;box-shadow:0 4px 24px rgba(239,118,34,0.50)}
-.auth-logo-name{font-size:var(--fs-lg);font-weight:700;color:#fff;font-family:'Oswald',sans-serif;letter-spacing:.05em}
-.auth-logo-divider{width:40px;height:2px;background:linear-gradient(90deg,transparent,rgba(239,118,34,0.70),transparent)}
-.auth-logo-app{font-size:var(--fs-xs);font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.50)}
-.auth-title{font-size:var(--fs-2xl);font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.5px}
-.auth-sub{font-size:var(--fs-sm);color:rgba(255,255,255,0.60);margin-bottom:26px}
-.auth-input{width:100%;padding:12px 15px;border-radius:10px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.10);
-  color:#fff;font-size:16px;font-family:inherit;margin-bottom:12px;backdrop-filter:blur(8px)}
-.auth-input:focus{outline:none;border-color:rgba(239,118,34,0.65);background:rgba(255,255,255,0.16);box-shadow:0 0 0 3px rgba(239,118,34,0.20)}
+.auth-hero-logo{width:120px;height:auto;margin-bottom:18px;filter:drop-shadow(0 4px 24px rgba(239,118,34,0.45))}
+.auth-logo-icon{width:64px;height:64px;margin-bottom:18px;background:linear-gradient(135deg,var(--orange),var(--orange2));border-radius:16px;
+  display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;box-shadow:0 4px 24px rgba(239,118,34,0.50)}
+.auth-hero-title{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.06em;color:#fff;
+  font-size:clamp(34px,6.5vw,64px);line-height:1.05;margin:0;text-shadow:0 2px 30px rgba(239,118,34,0.35)}
+.auth-hero-sub{font-size:var(--fs-xs);font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(255,255,255,0.50);margin-top:10px;margin-bottom:36px}
+.auth-form{width:100%;max-width:340px}
+.auth-input{width:100%;padding:13px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.20);background:rgba(255,255,255,0.06);
+  color:#fff;font-size:16px;font-family:inherit;margin-bottom:12px;backdrop-filter:blur(8px);text-align:center}
+.auth-input:focus{outline:none;border-color:rgba(239,118,34,0.65);background:rgba(255,255,255,0.11);box-shadow:0 0 0 3px rgba(239,118,34,0.20)}
 .auth-input::placeholder{color:rgba(255,255,255,0.40)}
 .auth-btn{width:100%;padding:14px;border-radius:10px;background:linear-gradient(135deg,#EF7622 0%,#d4651a 100%);border:none;color:#fff;
   font-size:var(--fs-sm);font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-  transition:transform .18s,box-shadow .18s;margin-top:6px;box-shadow:0 4px 20px rgba(239,118,34,0.42),inset 0 1px 0 rgba(255,255,255,0.20)}
+  transition:transform .18s,box-shadow .18s;margin-top:2px;box-shadow:0 4px 20px rgba(239,118,34,0.42),inset 0 1px 0 rgba(255,255,255,0.20)}
 .auth-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(239,118,34,0.55)}
-.auth-note{margin-top:20px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);
-  font-size:var(--fs-xs);color:rgba(255,255,255,0.60);line-height:1.6}
-.auth-note b{color:rgba(255,255,255,0.85)}
+.auth-sub{font-size:var(--fs-sm);color:rgba(255,255,255,0.60);margin-bottom:16px}
+.auth-error{margin-bottom:16px;padding:10px 14px;border-radius:10px;background:rgba(192,48,58,0.18);border:1px solid rgba(192,48,58,0.40);
+  font-size:var(--fs-sm);color:#ffb3b8}
+.auth-link{color:rgba(255,255,255,0.55);font-size:var(--fs-xs);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.auth-link:hover{color:#fff}
+.auth-kiosk-link{margin-top:34px;color:rgba(255,255,255,0.40);font-size:13px;text-decoration:none;
+  display:inline-flex;align-items:center;gap:6px;transition:color .18s}
+.auth-kiosk-link:hover{color:rgba(255,255,255,0.75)}
 
 /* ── Command room ── */
 .cmd-wrap{background:#040b16;min-height:100vh;display:flex;flex-direction:column;color:#e6edf6}

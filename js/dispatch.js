@@ -54,16 +54,24 @@ async function assignRide(id) {
   await rideAction(id, 'assign', { driver_id, vehicle_id });
 }
 
-function reassignPrompt(id) {
-  const names = DRIVERS.map((d, i) => `${i + 1}. ${d.full_name}`).join('\n');
-  const pick = prompt(`Reassign to which driver?\n${names}\n\nEnter number:`);
-  const d = DRIVERS[parseInt(pick, 10) - 1];
-  if (!d) return;
-  const vnames = VEHICLES.filter(v => v.active).map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-  const vp = prompt(`Which vehicle?\n${vnames}\n\nEnter number:`);
-  const v = VEHICLES.filter(x => x.active)[parseInt(vp, 10) - 1];
-  if (!v) return;
-  rideAction(id, 'assign', { driver_id: d.id, vehicle_id: v.id });
+async function reassignPrompt(id) {
+  const activeVehicles = VEHICLES.filter(v => v.active);
+  const form = await formModal('Reassign ride', `
+    <div class="form-group"><label class="form-label">Driver</label>
+      <select class="form-input" name="driver_id" required>
+        <option value="">Choose a driver…</option>
+        ${DRIVERS.map(d => `<option value="${d.id}">${esc(d.full_name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Vehicle</label>
+      <select class="form-input" name="vehicle_id" required>
+        <option value="">Choose a vehicle…</option>
+        ${activeVehicles.map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join('')}
+      </select>
+    </div>
+  `, { icon: 'fa-shuffle', submitLabel: 'Reassign' });
+  if (!form || !form.driver_id.value || !form.vehicle_id.value) return;
+  rideAction(id, 'assign', { driver_id: form.driver_id.value, vehicle_id: form.vehicle_id.value });
 }
 
 (async function init() {

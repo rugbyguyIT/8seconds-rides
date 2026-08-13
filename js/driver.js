@@ -51,8 +51,13 @@ async function refresh() {
 async function advance(id, action) { await rideAction(id, action); }
 
 async function sendAlert(id, kind) {
-  const note = prompt(kind === 'vehicle' ? 'What is wrong with the vehicle?' : 'Where are you stuck? (optional)') || '';
-  const { error } = await api(`/rides/${id}/action`, 'POST', { action: 'alert', alert_kind: kind, note });
+  const note = await promptModal('', {
+    title: kind === 'vehicle' ? 'Vehicle issue' : 'Heavy traffic',
+    placeholder: kind === 'vehicle' ? 'What is wrong with the vehicle?' : 'Where are you stuck? (optional)',
+    required: kind === 'vehicle', okLabel: 'Alert dispatch',
+  });
+  if (note === null && kind === 'vehicle') return;
+  const { error } = await api(`/rides/${id}/action`, 'POST', { action: 'alert', alert_kind: kind, note: note || '' });
   if (error) return toastMsg('Could not send', error);
   toastMsg('Dispatch alerted', 'The rider and their handler got a soft heads-up. Dispatch will follow up.');
 }

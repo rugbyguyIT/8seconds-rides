@@ -196,7 +196,7 @@ async function unlink(id) { await api('/handler-assignments/' + id, 'DELETE'); r
 async function resetPw(id) {
   const u = USERS.find(x => x.id === id);
   if (!u) return;
-  const pw = prompt(`New password for ${u.full_name} (dispatch/admin only):`);
+  const pw = await promptModal('Visible to dispatch/admin only.', { title: `New password for ${u.full_name}`, placeholder: 'New password', required: true, okLabel: 'Set password' });
   if (!pw) return;
   const { error } = await api('/profiles/' + id, 'PATCH', { password: pw });
   toastMsg(error ? 'Failed' : 'Password set', error || u.full_name);
@@ -204,7 +204,8 @@ async function resetPw(id) {
 async function forceLogout(id) {
   const u = USERS.find(x => x.id === id);
   if (!u) return;
-  if (!confirm(`Sign ${u.full_name} out of every device?`)) return;
+  const ok = await confirmModal(`Sign ${u.full_name} out of every device?`, { title: 'Force sign-out', confirmLabel: 'Sign out everywhere' });
+  if (!ok) return;
   await api('/profiles/' + id, 'PATCH', { force_logout: true });
   toastMsg('Signed out everywhere', u.full_name);
 }

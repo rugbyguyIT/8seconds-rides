@@ -3,11 +3,14 @@ const me = requireLogin('admin');
 let USERS = [], VEHICLES = [], VCLASSES = [], LOCS = [];
 const LEVEL_BADGE = { info: 'badge-neutral', warn: 'badge-pending', error: 'badge-no' };
 
-// Same live map as Command Center, shrunk to fit the dashboard — no
-// Recenter/Zoom-to-city controls here, just a glance at the fleet.
+// Same live map as Command Center, shrunk to fit the dashboard, with the
+// same Recenter/Zoom-to-city controls plus an Expand toggle (grows to
+// half the screen, then Minimize puts it back).
+const NRG_CENTER = [-95.4103, 29.6857];
+const HOUSTON_BOUNDS = [[-95.85, 29.48], [-95.05, 30.02]];
 const adminMap = createLiveMap({
-  fallbackId: 'admin-map-fallback', realId: 'admin-map-real', vehLayerId: 'admin-veh-layer',
-  center: [-95.4103, 29.6857], zoom: 13,
+  fallbackId: 'admin-map-fallback', realId: 'admin-map-real', vehLayerId: 'admin-veh-layer', controlsId: 'admin-map-controls',
+  center: NRG_CENTER, bounds: HOUSTON_BOUNDS, zoom: 13, recenterZoom: 15,
 });
 async function refreshAdminMap() {
   const [{ data: rides }, { data: positions }] = await Promise.all([api('/rides'), api('/positions/latest')]);
@@ -15,6 +18,18 @@ async function refreshAdminMap() {
   const rideByVehicle = {};
   live.forEach(r => { if (r.vehicle_id) rideByVehicle[r.vehicle_id] = r; });
   adminMap.refresh(positions || [], rideByVehicle);
+}
+function toggleAdminMapExpand() {
+  const el = document.getElementById('admin-map');
+  const btn = document.getElementById('admin-map-expand-btn');
+  const expanded = el.classList.toggle('expanded');
+  btn.innerHTML = expanded
+    ? '<i class="fa-solid fa-down-left-and-up-right-to-center"></i> Minimize'
+    : '<i class="fa-solid fa-up-right-and-down-left-from-center"></i> Expand';
+  // Mapbox doesn't notice its container resizing on its own — nudge it
+  // once now and once more after the CSS height transition finishes.
+  adminMap.resize();
+  setTimeout(() => adminMap.resize(), 260);
 }
 
 // ── View switching (Dashboard / Settings) ───────────────────────

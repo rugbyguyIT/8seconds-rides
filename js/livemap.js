@@ -9,11 +9,11 @@
 // createLiveMap({
 //   fallbackId, realId,        required — the two map containers
 //   vehLayerId,                required — <g> inside the fallback SVG
-//   controlsId,                optional — Recenter/Zoom-to-city button row
+//   controlsId,                optional — Recenter/Zoom-to-city button row (works in both real-map and SVG-fallback mode)
 //   center: [lng, lat],        default camera center (Recenter target)
 //   bounds: [[swLng,swLat],[neLng,neLat]], "Zoom to city" target
 //   zoom, recenterZoom,        default 13 / 15
-// }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), isReal() }
+// }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), isReal() }
 // ─────────────────────────────────────────────────────────────
 const RIDE_VEH_STATE = {
   assigned:    { fill: 'var(--orange)', tag: 'TO PICKUP', ring: true },
@@ -26,6 +26,8 @@ function createLiveMap(cfg) {
   let realMap = null;
   const mapMarkers = {};      // vehicle_id -> mapboxgl.Marker, kept across refreshes
   let fleetAutoFitDone = false; // only auto-fit the camera to the fleet once — after that Recenter/Zoom to city are the only things that move it
+  let forcedBbox = null;      // SVG-fallback equivalent of a manual camera move — set by recenter()/zoomToCity() so those buttons do something even before a Mapbox token is configured
+  let lastPos = [], lastRideByVehicle = {}; // so recenter()/zoomToCity() can redraw immediately instead of waiting for the next poll
 
   // Lat/lng -> local SVG coordinates. Auto-fits to wherever the fleet
   // actually is (padded) so this works regardless of the venue's real
@@ -117,10 +119,6 @@ function createLiveMap(cfg) {
     mapboxgl.accessToken = token;
     document.getElementById(cfg.fallbackId).style.display = 'none';
     document.getElementById(cfg.realId).style.display = 'block';
-    if (cfg.controlsId) {
-      const c = document.getElementById(cfg.controlsId);
-      if (c) c.style.display = 'flex';
-    }
     realMap = new mapboxgl.Map({
       container: cfg.realId,
       style: 'mapbox://styles/mapbox/dark-v11',
@@ -133,23 +131,45 @@ function createLiveMap(cfg) {
 
   function refresh(pos, rideByVehicle) {
     pos = pos || []; rideByVehicle = rideByVehicle || {};
+    lastPos = pos; lastRideByVehicle = rideByVehicle;
     if (realMap) {
       updateRealMapMarkers(pos, rideByVehicle);
     } else {
-      const bbox = computeBbox(pos);
+      const bbox = forcedBbox || computeBbox(pos);
       const layer = document.getElementById(cfg.vehLayerId);
       if (layer) layer.innerHTML = pos.map(p => vehicleMarkup(p, rideByVehicle[p.vehicle_id], bbox)).join('');
     }
   }
 
+  // Recenter/Zoom to city work on the real Mapbox map when one's
+  // configured. Without a Mapbox token (SVG fallback board), there's no
+  // real camera to move — instead these pin the fallback's projection to
+  // a fixed box around NRG / all of Houston, same idea, drawn by hand.
   function recenter() {
-    if (!realMap || !cfg.center) return;
-    realMap.flyTo({ center: cfg.center, zoom: cfg.recenterZoom || 15, duration: 700 });
+    if (realMap) {
+      if (cfg.center) realMap.flyTo({ center: cfg.center, zoom: cfg.recenterZoom || 15, duration: 700 });
+      return;
+    }
+    if (!cfg.center) return;
+    const [lng, lat] = cfg.center;
+    forcedBbox = { minLat: lat - 0.008, maxLat: lat + 0.008, minLng: lng - 0.01, maxLng: lng + 0.01 };
+    refresh(lastPos, lastRideByVehicle);
   }
   function zoomToCity() {
-    if (!realMap || !cfg.bounds) return;
-    realMap.fitBounds(cfg.bounds, { padding: 30, duration: 900 });
+    if (realMap) {
+      if (cfg.bounds) realMap.fitBounds(cfg.bounds, { padding: 30, duration: 900 });
+      return;
+    }
+    if (!cfg.bounds) return;
+    const [[swLng, swLat], [neLng, neLat]] = cfg.bounds;
+    forcedBbox = { minLat: swLat, maxLat: neLat, minLng: swLng, maxLng: neLng };
+    refresh(lastPos, lastRideByVehicle);
+  }
+  // Mapbox needs an explicit nudge after its container's size changes
+  // (e.g. an expand/minimize toggle) — it doesn't watch for that itself.
+  function resize() {
+    if (realMap) realMap.resize();
   }
 
-  return { init, refresh, recenter, zoomToCity, isReal: () => !!realMap };
+  return { init, refresh, recenter, zoomToCity, resize, isReal: () => !!realMap };
 }

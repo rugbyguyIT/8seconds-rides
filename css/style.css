@@ -236,7 +236,7 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .map-label-sm{fill:#2e4763;font-size:8.5px;letter-spacing:.14em}
 .veh{transition:opacity .3s}
 .veh-dot{fill:var(--orange);stroke:#fff;stroke-width:2}
-.veh-idle .veh-dot{fill:#3d5a7c}
+.veh-idle .veh-dot{fill:#8a93a3}
 .veh-stale .veh-dot{fill:#5a7590;animation:blink 1.2s ease-in-out infinite}
 .veh-ring{fill:none;stroke:rgba(239,118,34,0.5);stroke-width:2;animation:ring 2s ease-out infinite}
 @keyframes ring{0%{r:8;opacity:.9}100%{r:22;opacity:0}}

@@ -41,13 +41,21 @@ function kioskSignOut() {
   window.location.href = '/pages/kiosk.html';
 }
 
+// The kiosk (role='display') gets enduser_name/photo redacted server-side
+// (see api/src/functions/rides.js ridesList) — who's riding never reaches
+// this screen. Fall back to the driver's name, then the vehicle's label,
+// so the card still identifies the ride by something, just not the guest.
 function railCard(r) {
+  const headline = r.enduser_name || r.driver_name || r.vehicle_label || 'Active ride';
+  const metaLeft = r.enduser_name
+    ? esc(r.driver_name || 'Unassigned') + (r.vehicle_label ? ' · ' + esc(r.vehicle_label) : '')
+    : esc(r.vehicle_label || '');
   return `<div class="cmd-ride">
-    <div class="r-top"><span class="r-name">${esc(r.enduser_name)}</span>
+    <div class="r-top"><span class="r-name">${esc(headline)}</span>
       <span class="class-chip ${CLASS_CHIP[r.enduser_class] || 'class-vip'}">${esc(r.enduser_class || 'guest')}</span></div>
     <div class="r-route">${rideRoute(r)}</div>
     <div class="r-meta">
-      <span>${esc(r.driver_name || 'Unassigned')}${r.vehicle_label ? ' · ' + esc(r.vehicle_label) : ''}</span>
+      <span>${metaLeft}</span>
       <span>${esc((STATUS_META[r.status] || {}).label || r.status)}</span>
     </div>
   </div>`;

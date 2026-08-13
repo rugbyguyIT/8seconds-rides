@@ -15,11 +15,16 @@
 //   zoom, recenterZoom,        default 13 / 15
 // }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), isReal() }
 // ─────────────────────────────────────────────────────────────
+// Three colors, on purpose: gray = not carrying anyone right now, orange
+// (rodeo orange) = en route to a pickup or waiting there, green = has a
+// rider and is headed to the destination. No blue/other states — status
+// detail still shows in the tag text underneath.
+const VEH_IDLE_FILL = '#8a93a3';
 const RIDE_VEH_STATE = {
-  assigned:    { fill: 'var(--orange)', tag: 'TO PICKUP', ring: true },
-  en_route:    { fill: 'var(--orange)', tag: 'TO PICKUP', ring: true },
-  arrived:     { fill: 'var(--blue)',   tag: 'WAITING',   ring: true },
-  in_progress: { fill: 'var(--green)',  tag: 'ONBOARD',   ring: false },
+  assigned:    { fill: 'var(--orange)', tag: 'EN ROUTE',      ring: true },
+  en_route:    { fill: 'var(--orange)', tag: 'EN ROUTE',      ring: true },
+  arrived:     { fill: 'var(--orange)', tag: 'WAITING',       ring: true },
+  in_progress: { fill: 'var(--green)',  tag: 'TO DESTINATION', ring: false },
 };
 
 function createLiveMap(cfg) {
@@ -50,17 +55,22 @@ function createLiveMap(cfg) {
     const y = (1 - (lat - bbox.minLat) / (bbox.maxLat - bbox.minLat)) * 600;
     return { x: Math.max(24, Math.min(976, x)), y: Math.max(24, Math.min(576, y)) };
   }
+  // Never the rider's name — just the driver's name if this vehicle is
+  // currently on a ride, otherwise the vehicle's own label/number.
+  function vehLabel(pos, ride) {
+    return (ride && ride.driver_name) || pos.label;
+  }
   function vehicleMarkup(pos, ride, bbox) {
     const { x, y } = toXY(pos.lat, pos.lng, bbox);
     const state = ride && RIDE_VEH_STATE[ride.status];
-    const fill = state ? state.fill : '#3d5a7c';
+    const fill = state ? state.fill : VEH_IDLE_FILL;
     const tag = state ? state.tag : 'IDLE';
     const stale = !!pos.stale && !ride;
     return `<g class="veh${stale ? ' veh-stale' : ''}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
       ${state && state.ring ? `<circle class="veh-ring" r="9" style="stroke:${fill}"/>` : ''}
       <circle class="veh-dot" r="7" style="fill:${fill}"/>
       <rect x="-36" y="-30" width="72" height="15" rx="4" class="veh-tag-bg"/>
-      <text x="0" y="-19" text-anchor="middle" class="veh-tag">${esc(pos.label)}</text>
+      <text x="0" y="-19" text-anchor="middle" class="veh-tag">${esc(vehLabel(pos, ride))}</text>
       <rect x="-28" y="12" width="56" height="13" rx="4" class="veh-tag-bg" style="fill:${fill};opacity:.92"/>
       <text x="0" y="21.5" text-anchor="middle" class="veh-tag" style="font-size:7.5px">${tag}</text>
     </g>`;
@@ -75,22 +85,26 @@ function createLiveMap(cfg) {
       seen.add(p.vehicle_id);
       const ride = rideByVehicle[p.vehicle_id];
       const state = ride && RIDE_VEH_STATE[ride.status];
-      const fill = state ? state.fill : '#3d5a7c';
+      const fill = state ? state.fill : VEH_IDLE_FILL;
       const tag = state ? state.tag : (p.stale ? 'STALE' : 'IDLE');
       let m = mapMarkers[p.vehicle_id];
       if (!m) {
         const el = document.createElement('div');
         el.className = 'mb-veh-marker';
-        el.innerHTML = `<div class="mb-veh-label">${esc(p.label)}</div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div>`;
+        el.innerHTML = `<div class="mb-veh-label"></div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div>`;
         m = new mapboxgl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(realMap);
         mapMarkers[p.vehicle_id] = m;
       } else {
         m.setLngLat([p.lng, p.lat]);
       }
       const el = m.getElement();
-      const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag');
+      const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag'), labelEl = el.querySelector('.mb-veh-label');
       dot.style.background = fill; dot.classList.toggle('stale', !!p.stale && !ride);
       tagEl.textContent = tag; tagEl.style.background = fill;
+      // Driver's name while they're on a ride, vehicle number otherwise —
+      // never the rider's, and re-checked every refresh since a vehicle
+      // can pick up/drop a ride between polls.
+      labelEl.textContent = vehLabel(p, ride);
     });
     Object.keys(mapMarkers).forEach((id) => {
       if (!seen.has(id)) { mapMarkers[id].remove(); delete mapMarkers[id]; }

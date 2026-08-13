@@ -93,7 +93,16 @@ app.http('ridesList', {
     const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
     const r = await query(`${RIDE_SELECT} ${where}
       ORDER BY COALESCE(r.scheduled_at, r.created_at) ASC LIMIT 200`, vals);
-    return json(r.rows);
+
+    // Command Center's PIN kiosk (role='display') is a public-facing
+    // board — who's riding is redacted server-side, not just hidden in
+    // the UI, so it never goes out over the wire to that screen. Route,
+    // status, driver, and vehicle stay so it's still useful for dispatch
+    // operations happening in the room.
+    const rows = user.role === 'display'
+      ? r.rows.map(row => ({ ...row, enduser_name: null, enduser_photo: null, enduser_id: null }))
+      : r.rows;
+    return json(rows);
   },
 });
 

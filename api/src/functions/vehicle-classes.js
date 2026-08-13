@@ -109,12 +109,22 @@ app.http('vehicleClassPhoto', {
 app.http('vehiclePhoto', {
   methods: ['POST'], authLevel: 'anonymous', route: 'vehicles/{id}/photo',
   handler: async (request) => {
-    const { user, error, status } = await requireRole(request, 'dispatch', 'admin');
+    const { user, error, status } = await requireAuth(request);
     if (error) return err(error, status);
+    const id = request.params.id;
+    // Dispatch/admin can set any vehicle's photo. A driver can set the
+    // photo for the specific vehicle assigned to them — same "it's your
+    // car, you maintain it" carve-out as vehiclesUpdate in fleet.js.
+    if (!['dispatch', 'admin'].includes(user.role)) {
+      if (user.role !== 'driver') return err('Forbidden', 403);
+      const cur = await query(`SELECT driver_id FROM public.vehicles WHERE id = $1`, [id]);
+      if (!cur.rows.length) return err('Not found', 404);
+      if (cur.rows[0].driver_id !== user.sub) return err('Forbidden — not your vehicle', 403);
+    }
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     try {
-      const url = await resolvePhoto('vehicle', request.params.id, body, user);
-      const r = await query(`UPDATE public.vehicles SET photo_url = $1 WHERE id = $2 RETURNING *`, [url, request.params.id]);
+      const url = await resolvePhoto('vehicle', id, body, user);
+      const r = await query(`UPDATE public.vehicles SET photo_url = $1 WHERE id = $2 RETURNING *`, [url, id]);
       return json(r.rows[0] || null);
     } catch (e) {
       logApp('warn', 'vehicle.photo_failed', e.message, { profile_id: user.sub, email: user.email });

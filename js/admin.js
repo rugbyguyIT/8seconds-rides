@@ -91,6 +91,77 @@ async function refresh() {
         <td style="text-align:right;white-space:nowrap">
           <button class="btn btn-sm" onclick="openPhotoModal('vehicle','${v.id}','${esc(v.label)}')" title="Vehicle photo"><i class="fa-solid fa-camera"></i></button>
           <button class="btn btn-danger btn-sm" onclick="toggleVehicle('${v.id}',${v.active})">${v.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('');
+
+  renderDrivers();
+}
+
+// ── Drivers & their vehicles ─────────────────────────────────────
+// Admin visibility into who's driving what: driver photo, their
+// vehicle's class/photo/plate, and the HLSR hang tag number. The
+// driver↔vehicle link is persistent (vehicles.driver_id), separate
+// from per-shift/per-ride assignment — it answers "whose car is this
+// normally", not "who's driving this specific trip".
+function driverVehicle(driverId) { return VEHICLES.find(v => v.driver_id === driverId); }
+
+function renderDrivers() {
+  const el = document.getElementById('drivers-rows');
+  if (!el) return;
+  const drivers = USERS.filter(u => u.role === 'driver');
+  el.innerHTML = drivers.length ? drivers.map(d => {
+    const v = driverVehicle(d.id);
+    return `<tr>
+      <td style="display:flex;align-items:center;gap:9px">
+        <img src="${esc(d.photo_url || '')}" onerror="this.style.visibility='hidden'"
+             style="width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--surface3);flex-shrink:0" />
+        <div><b>${esc(d.full_name)}</b><div class="small muted">${esc(d.phone_mobile || '—')}</div></div></td>
+      <td>${v ? `<div style="display:flex;align-items:center;gap:9px">
+          <img src="${esc(v.photo_url || classPhoto(v.class) || '')}" onerror="this.style.visibility='hidden'"
+               style="width:34px;height:34px;border-radius:8px;object-fit:cover;background:var(--surface3);flex-shrink:0" />
+          <span>${esc(v.label)}</span></div>` : '<span class="small muted">No vehicle assigned</span>'}</td>
+      <td>${v ? `<span class="badge badge-neutral">${esc(classLabel(v.class))}</span>` : '—'}</td>
+      <td class="mono small">${v ? esc(v.plate || '—') : '—'}</td>
+      <td class="mono small">${v ? esc(v.hang_tag || '—') : '—'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" onclick="assignDriverVehicle('${d.id}')" title="${v ? 'Reassign vehicle' : 'Assign vehicle'}"><i class="fa-solid fa-car"></i></button>
+        ${v ? `<button class="btn btn-sm" onclick="openPhotoModal('vehicle','${v.id}','${esc(v.label)}')" title="Vehicle photo"><i class="fa-solid fa-camera"></i></button>
+        <button class="btn btn-sm" onclick="editVehicleSetup('${v.id}')" title="Plate / hang tag"><i class="fa-solid fa-pen"></i></button>` : ''}
+      </td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="small muted">No drivers registered yet — create one under Users.</td></tr>';
+}
+
+async function assignDriverVehicle(driverId) {
+  const d = USERS.find(x => x.id === driverId);
+  if (!d) return;
+  const current = driverVehicle(driverId);
+  const options = ['<option value="">— Unassign —</option>'].concat(
+    VEHICLES.map(v => `<option value="${v.id}" ${current && current.id === v.id ? 'selected' : ''}>${esc(v.label)}${v.driver_id && v.driver_id !== driverId ? ' (assigned elsewhere)' : ''}</option>`));
+  const f = await formModal(`Assign vehicle — ${d.full_name}`, `
+    <div class="form-group"><label class="form-label">Vehicle</label>
+      <select class="form-input" name="vehicle_id">${options.join('')}</select></div>
+    <div class="small muted">Picking a vehicle already assigned to another driver moves it to ${esc(d.full_name)}.</div>
+  `, { icon: 'fa-car', submitLabel: 'Save', wide: false });
+  if (!f) return;
+  if (current && current.id !== f.vehicle_id.value) {
+    await api('/vehicles/' + current.id, 'PATCH', { driver_id: null });
+  }
+  if (f.vehicle_id.value) {
+    const { error } = await api('/vehicles/' + f.vehicle_id.value, 'PATCH', { driver_id: driverId });
+    if (error) return toastMsg('Could not assign vehicle', error);
+  }
+  toastMsg('Vehicle assignment saved', d.full_name); refresh();
+}
+
+function editVehicleSetup(vehicleId) {
+  const v = VEHICLES.find(x => x.id === vehicleId);
+  if (!v) return;
+  openModal(`Vehicle setup — ${v.label}`, `
+    <div class="form-group"><label class="form-label">Plate</label><input class="form-input" name="plate" value="${esc(v.plate || '')}" /></div>
+    <div class="form-group"><label class="form-label">HLSR hang tag number</label><input class="form-input" name="hang_tag" value="${esc(v.hang_tag || '')}" /></div>
+  `, async (f) => {
+    const { error } = await api('/vehicles/' + vehicleId, 'PATCH', { plate: f.plate.value.trim() || null, hang_tag: f.hang_tag.value.trim() || null });
+    if (error) return toastMsg('Could not save', error);
+    toastMsg('Vehicle updated', v.label); refresh();
+  });
 }
 
 function classLabel(key) { return VCLASSES.find(c => c.key === key)?.label || key; }

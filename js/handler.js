@@ -45,6 +45,9 @@ async function submitRequest(ev) {
 
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
+  const firstName = me.first_name || (me.full_name || '').split(' ')[0] || 'there';
+  document.getElementById('page-title').textContent = `Hey ${firstName}!`;
+  document.getElementById('page-sub').textContent = 'Who are we taking care of today?';
   const [{ data: prin }, { data: locs }] = await Promise.all([api('/handler-assignments'), api('/locations')]);
   PRINCIPALS = prin || []; LOCS = locs || [];
   document.getElementById('principals').innerHTML = PRINCIPALS.map(p =>

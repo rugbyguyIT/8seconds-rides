@@ -55,8 +55,25 @@ function wireAddressField(selectName, textName, latName, lngName) {
   text.addEventListener('input', () => { if (text.value) select.value = ''; });
 }
 
+function openProfileMenu() {
+  const hcOn = document.body.classList.contains('hc');
+  _openUiModal(`
+    <div class="section-title" style="margin-bottom:14px"><i class="fa-solid fa-user"></i> ${esc(me.full_name)}</div>
+    <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">High contrast mode
+      <span class="muted" style="font-weight:400;display:block;margin-top:2px">Solid colors, thicker borders — easier to read in bright light or for low vision.</span></span>
+      <label class="switch"><input type="checkbox" id="hc-toggle" ${hcOn ? 'checked' : ''}><span class="slider"></span></label></div>
+    <button class="btn btn-danger btn-block" style="margin-top:18px" onclick="signOut()"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
+  `, (ov) => {
+    ov.addEventListener('mousedown', (e) => { if (e.target === ov) _closeUiModal(); });
+    ov.querySelector('#hc-toggle').addEventListener('change', (e) => toggleHighContrast(e.target.checked));
+  }, () => _closeUiModal());
+}
+
 (async function init() {
   document.getElementById('user-name').textContent = me.full_name;
+  const firstName = me.first_name || (me.full_name || '').split(' ')[0] || 'there';
+  document.getElementById('page-title').textContent = `Hey ${firstName}!`;
+  document.getElementById('page-sub').textContent = 'Where can we take you today?';
   const { data: locs } = await api('/locations'); LOCS = locs || [];
   document.querySelector('[name=pickup]').innerHTML = locationOptions(LOCS, 'Choose a pickup point…');
   document.querySelector('[name=dropoff]').innerHTML = locationOptions(LOCS, 'Choose a destination…');

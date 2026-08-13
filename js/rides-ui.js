@@ -175,6 +175,19 @@ function endImpersonation() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
   else show();
 })();
+// ── High contrast mode (mobile/PWA accessibility) ──
+// Purely a local device preference (localStorage, not synced to the
+// account) — solid colors, no blur, thicker borders. Scoped under
+// body.theme-glass.hc in css/rider-glass.css so it only ever affects
+// the mobile rider PWA, never the desktop/web portals.
+function toggleHighContrast(force) {
+  const on = typeof force === 'boolean' ? force : !document.body.classList.contains('hc');
+  document.body.classList.toggle('hc', on);
+  try { localStorage.setItem('hc_mode', on ? '1' : '0'); } catch {}
+}
+(function initHighContrast() {
+  try { if (localStorage.getItem('hc_mode') === '1') document.body.classList.add('hc'); } catch {}
+})();
 function formModal(title, fieldsHtml, opts) {
   opts = opts || {};
   return new Promise((resolve) => {

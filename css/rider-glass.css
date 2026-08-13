@@ -70,6 +70,43 @@ body.theme-glass .site-footer{background:transparent;border-top:1px solid rgba(2
 
 /* section labels already inherit --text/--orange, no change needed */
 
+/* ── High contrast mode (accessibility) ──
+   Toggled from the Profile menu (js/rider.js openProfileMenu), stored
+   per-device via localStorage (js/rides-ui.js toggleHighContrast).
+   Solid black/white palette, no blur, thicker borders — legible in
+   bright sun and for low-vision users. Desktop/web portals never load
+   this file, so this can't affect them. */
+body.theme-glass.hc{
+  --bg:#000; --surface:#000; --surface2:#050505; --surface3:#151515;
+  --border:#fff; --border2:#fff;
+  --text:#fff; --muted:#f2f2f2; --muted2:#dcdcdc;
+  --green:#00ff6a; --greenbg:#00220a;
+  --red:#ff4d4d; --redbg:#330000;
+  --amber:#ffd400; --amberbg:#332900;
+  --blue:#4dc3ff; --bluebg:#001f33;
+  background:#000;
+}
+body.theme-glass.hc *{text-shadow:none}
+body.theme-glass.hc .topbar,
+body.theme-glass.hc .card,
+body.theme-glass.hc .stat-card,
+body.theme-glass.hc .event-card,
+body.theme-glass.hc .rider-tabbar{
+  background:#000!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  border:2px solid #fff!important;box-shadow:none!important;
+}
+body.theme-glass.hc .badge{border-width:2px;font-weight:700}
+body.theme-glass.hc .btn{border:2px solid #fff;background:#000;color:#fff}
+body.theme-glass.hc .btn-primary{background:#ffd400;color:#000;border-color:#ffd400;font-weight:800}
+body.theme-glass.hc .btn-danger{background:#ff4d4d;color:#000;border-color:#ff4d4d;font-weight:800}
+body.theme-glass.hc a{color:#66d9ff;text-decoration:underline}
+body.theme-glass.hc .form-input{background:#000;border:2px solid #fff;color:#fff}
+body.theme-glass.hc .form-input::placeholder{color:#bbb}
+body.theme-glass.hc .rider-tab{color:#ccc}
+body.theme-glass.hc .rider-tab.active{color:#ffd400}
+body.theme-glass.hc .rider-fab{background:#ffd400;color:#000;border:2px solid #fff;box-shadow:none}
+body.theme-glass.hc :focus-visible{outline:3px solid #ffd400;outline-offset:2px}
+
 /* ── Mobile: bottom tab bar + floating request button ── */
 .rider-tabbar,.rider-fab{display:none}
 @media(max-width:768px){

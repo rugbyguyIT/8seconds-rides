@@ -30,7 +30,7 @@
   </nav>
   <div class="content">
     <div class="topbar">
-      <div><div><div class="page-title">My Rides</div><div class="page-sub">Request and track your rides</div></div></div>
+      <div><div><div class="page-title" id="page-title">My Rides</div><div class="page-sub" id="page-sub">Request and track your rides</div></div></div>
     </div>
     <div class="main-panel">
 <div id="sec-live" class="section-title"><i class="fa-solid fa-tower-broadcast"></i> Live now</div>
@@ -75,7 +75,7 @@
   <button class="rider-tab active" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="fa-solid fa-house"></i>Home</button>
   <button class="rider-tab" onclick="document.getElementById('sec-upcoming').scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-car"></i>Rides</button>
   <button class="rider-tab" onclick="document.getElementById('sec-live').scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-map-location-dot"></i>Track</button>
-  <button class="rider-tab" onclick="signOut()"><i class="fa-solid fa-user"></i>Profile</button>
+  <button class="rider-tab" onclick="openProfileMenu()"><i class="fa-solid fa-user"></i>Profile</button>
 </nav>
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>

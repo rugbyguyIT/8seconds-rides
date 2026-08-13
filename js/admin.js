@@ -274,7 +274,6 @@ async function loadSettingsView() {
     document.getElementById('s-support-phone').value = settings.support_phone || '';
     document.getElementById('s-support-email').value = settings.support_email || '';
     document.getElementById('s-sms-label').value = settings.sms_sender_label || '';
-    document.getElementById('s-app-theme').value = settings.app_theme || 'classic';
     document.getElementById('s-pilot-mode').checked = !!settings.pilot_mode;
     document.getElementById('s-updated').textContent = settings.updated_at
       ? `Last updated ${fmtWhen(settings.updated_at)}` : '';
@@ -290,7 +289,6 @@ async function saveAppSettings(ev) {
     support_phone: f.support_phone.value || null,
     support_email: f.support_email.value || null,
     sms_sender_label: f.sms_sender_label.value,
-    app_theme: f.app_theme.value,
     pilot_mode: f.pilot_mode.checked,
   };
   const { error } = await api('/app-settings', 'PATCH', body);

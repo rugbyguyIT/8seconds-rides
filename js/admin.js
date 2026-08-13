@@ -402,8 +402,8 @@ function openModal(title, fieldsHtml, onSave) {
   document.getElementById('modal-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,10,25,0.55);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
-  overlay.innerHTML = `<div class="card" style="width:100%;max-width:360px;padding:20px">
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,10,25,0.60);backdrop-filter:blur(10px) saturate(120%);-webkit-backdrop-filter:blur(10px) saturate(120%);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div class="card ui-modal-card" style="width:100%;max-width:360px;padding:20px">
     <div class="section-title" style="margin-bottom:14px">${esc(title)}</div>
     <form id="modal-form">${fieldsHtml}
       <div style="display:flex;gap:8px;margin-top:16px">

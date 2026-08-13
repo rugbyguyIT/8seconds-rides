@@ -71,6 +71,30 @@ function locationOptions(locs, sel) {
   s.textContent = `
     @keyframes uiModalFade{from{opacity:0}to{opacity:1}}
     @keyframes uiModalPop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+    /* Glass modal card — deliberately airier than the dashboard .card
+       (more transparency + blur, a soft top sheen, an inset hairline)
+       since a modal floats over a blurred backdrop rather than sitting
+       in a dense data layout, so it can afford to look more "glass". */
+    .ui-modal-card{
+      background:linear-gradient(165deg, rgba(255,255,255,0.68), rgba(255,255,255,0.46));
+      backdrop-filter:blur(28px) saturate(180%); -webkit-backdrop-filter:blur(28px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.85);
+      box-shadow:0 20px 60px rgba(0,46,93,0.22), 0 2px 8px rgba(0,46,93,0.08),
+                 inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.15);
+      position:relative; overflow:hidden;
+    }
+    .ui-modal-card::before{
+      content:''; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+      background:linear-gradient(125deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 32%),
+                 radial-gradient(120% 90% at 100% 0%, rgba(239,118,34,0.10) 0%, transparent 55%);
+    }
+    .ui-modal-card > *{ position:relative; }
+    .ui-modal-card .form-input{
+      background:rgba(255,255,255,0.55); border-color:rgba(0,46,93,0.14);
+      transition:background .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .ui-modal-card .form-input:focus{ background:rgba(255,255,255,0.92); }
+    .ui-modal-card .toggle-row{ border-color:rgba(0,46,93,0.08); }
   `;
   document.head.appendChild(s);
 })();
@@ -83,15 +107,15 @@ function _openUiModal(innerHtml, onMount, onEscape, maxWidth) {
   _closeUiModal();
   const overlay = document.createElement('div');
   overlay.id = 'ui-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,10,20,0.55);backdrop-filter:blur(6px);'
-    + '-webkit-backdrop-filter:blur(6px);z-index:2000;display:flex;align-items:center;justify-content:center;'
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,10,20,0.60);backdrop-filter:blur(10px) saturate(120%);'
+    + '-webkit-backdrop-filter:blur(10px) saturate(120%);z-index:2000;display:flex;align-items:center;justify-content:center;'
     + 'padding:20px;animation:uiModalFade .15s ease both';
   // Fluid width (100% up to maxWidth) so this is naturally bigger on
   // desktop and shrinks to fit on phones — no separate mobile styling
   // needed, the overlay's own 20px padding does the rest. Plain
   // confirm/prompt messages stay compact (380px default); forms with
   // multi-column rows (formModal) ask for more room.
-  overlay.innerHTML = `<div class="card" style="width:100%;max-width:${maxWidth || 380}px;padding:22px;animation:uiModalPop .18s cubic-bezier(.21,1.02,.73,1) both">${innerHtml}</div>`;
+  overlay.innerHTML = `<div class="card ui-modal-card" style="width:100%;max-width:${maxWidth || 380}px;padding:22px;animation:uiModalPop .18s cubic-bezier(.21,1.02,.73,1) both">${innerHtml}</div>`;
   document.body.appendChild(overlay);
   _uiModalEscHandler = (e) => { if (e.key === 'Escape' && typeof onEscape === 'function') onEscape(); };
   document.addEventListener('keydown', _uiModalEscHandler);

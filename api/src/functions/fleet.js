@@ -21,22 +21,31 @@ app.http('vehicles', {
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
     const { label, plate, capacity, vclass, color_desc, photo_url, hang_tag, driver_id } = body || {};
     if (!label) return err('label required');
-    // No explicit capacity? Fall back to the chosen class's default seat
-    // count (excluding driver) rather than a hardcoded 6, so classes like
-    // a 12-seat Sprinter Van behave sensibly out of the box.
-    let cap = capacity;
-    if (cap == null && vclass) {
-      const c = await query(`SELECT default_capacity FROM public.vehicle_classes WHERE key = $1`, [vclass]);
-      if (c.rows[0]) cap = c.rows[0].default_capacity;
+    try {
+      // No explicit capacity? Fall back to the chosen class's default seat
+      // count (excluding driver) rather than a hardcoded 6, so classes like
+      // a 12-seat Sprinter Van behave sensibly out of the box.
+      let cap = capacity;
+      if (cap == null && vclass) {
+        const c = await query(`SELECT default_capacity FROM public.vehicle_classes WHERE key = $1`, [vclass]);
+        if (c.rows[0]) cap = c.rows[0].default_capacity;
+      }
+      // A driver can only own one vehicle at a time (see 007 migration's
+      // unique index) — clear any prior assignment before creating this one.
+      if (driver_id) await query(`UPDATE public.vehicles SET driver_id = NULL WHERE driver_id = $1`, [driver_id]);
+      const r = await query(
+        `INSERT INTO public.vehicles (label, plate, capacity, class, color_desc, photo_url, hang_tag, driver_id)
+         VALUES ($1,$2,COALESCE($3,6),COALESCE($4,'suv'),$5,$6,$7,$8) RETURNING *`,
+        [label, plate || null, cap, vclass, color_desc || null, photo_url || null, hang_tag || null, driver_id || null]);
+      return json(r.rows[0], 201);
+    } catch (e) {
+      // Surface the real DB error instead of a bare, undiagnosable 500 —
+      // most likely cause is a migration (007/008) not yet run live.
+      const hint = /column .* does not exist/i.test(e.message)
+        ? ' — a database migration is probably missing; check api/migrations for one not yet run against this DB.'
+        : '';
+      return err(`${e.message}${hint}`, 500);
     }
-    // A driver can only own one vehicle at a time (see 007 migration's
-    // unique index) — clear any prior assignment before creating this one.
-    if (driver_id) await query(`UPDATE public.vehicles SET driver_id = NULL WHERE driver_id = $1`, [driver_id]);
-    const r = await query(
-      `INSERT INTO public.vehicles (label, plate, capacity, class, color_desc, photo_url, hang_tag, driver_id)
-       VALUES ($1,$2,COALESCE($3,6),COALESCE($4,'suv'),$5,$6,$7,$8) RETURNING *`,
-      [label, plate || null, cap, vclass, color_desc || null, photo_url || null, hang_tag || null, driver_id || null]);
-    return json(r.rows[0], 201);
   },
 });
 
@@ -69,13 +78,20 @@ app.http('vehiclesUpdate', {
     }
     if (!sets.length) return err('Nothing to update');
 
-    if (isPrivileged && body.driver_id) {
-      await query(`UPDATE public.vehicles SET driver_id = NULL WHERE driver_id = $1 AND id != $2`, [body.driver_id, id]);
-    }
+    try {
+      if (isPrivileged && body.driver_id) {
+        await query(`UPDATE public.vehicles SET driver_id = NULL WHERE driver_id = $1 AND id != $2`, [body.driver_id, id]);
+      }
 
-    vals.push(id);
-    const r = await query(`UPDATE public.vehicles SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`, vals);
-    return json(r.rows[0] || null);
+      vals.push(id);
+      const r = await query(`UPDATE public.vehicles SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`, vals);
+      return json(r.rows[0] || null);
+    } catch (e) {
+      const hint = /column .* does not exist/i.test(e.message)
+        ? ' — a database migration is probably missing; check api/migrations for one not yet run against this DB.'
+        : '';
+      return err(`${e.message}${hint}`, 500);
+    }
   },
 });
 

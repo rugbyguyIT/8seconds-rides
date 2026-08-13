@@ -149,17 +149,16 @@
   }
 
   function draw(now) {
-    // Catch up in whole steps if a tab was backgrounded/throttled, but
-    // cap it so an alt-tab away doesn't dump a huge burst of motion on
-    // return — just resume smoothly instead.
-    if (lastStepTime) {
-      let guard = 5;
-      while (now - lastStepTime >= STEP_MS && guard-- > 0) {
-        updatePipes();
-        lastStepTime += STEP_MS;
-      }
-      if (now - lastStepTime > STEP_MS) lastStepTime = now;
-    } else {
+    // At most ONE step per rAF callback — no "catch up" loop. A
+    // catch-up loop (running several steps back-to-back after a stall,
+    // e.g. the page still loading fonts/layout in its first second)
+    // is exactly what caused "starts slow then speeds up": a backlog
+    // built up while the page was busy, then drained in a burst once
+    // it settled. This can only ever run at-or-under the target pace,
+    // never faster, even after a stall — a stall just means fewer
+    // steps happen for that stretch, no over-correction after.
+    if (!lastStepTime || now - lastStepTime >= STEP_MS) {
+      updatePipes();
       lastStepTime = now;
     }
     raf = window.requestAnimationFrame(draw);

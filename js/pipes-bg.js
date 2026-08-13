@@ -7,7 +7,8 @@
 // transparent canvas that sits directly over the app's solid navy
 // backdrop (.auth-wrap), so the embers are the whole scene rather
 // than an overlay on a stock photo.
-// Retinted from the demo's default cyan to rodeo orange/gold.
+// Retinted from the demo's default cyan to a navy/orange two-tone
+// matching the app's own brand colors.
 // ─────────────────────────────────────────────────────
 (function () {
   'use strict';
@@ -25,19 +26,22 @@
   const turnCount = 8;
   const turnAmount = (360 / turnCount) * TO_RAD;
   const turnChanceRange = 58;
-  // Well under the original demo's values (0.4/0.8) now — two
-  // straight rounds of "still way too fast" means this needed a real
-  // cut, not another nudge. Paired with the frame-rate cap below
-  // (previously uncapped rAF, so it ran visibly faster on 120Hz+
-  // displays than on 60Hz — same px/frame speed, more frames/sec).
-  const baseSpeed = 0.22;
-  const rangeSpeed = 0.4;
+  // Three straight rounds of "still way too fast" — stop nudging,
+  // cut hard. This is a slow, meditative drift, not a fast animation.
+  const baseSpeed = 0.07;
+  const rangeSpeed = 0.13;
   const baseTTL = 100;
   const rangeTTL = 260;
-  const baseWidth = 2;
-  const rangeWidth = 4;
-  const baseHue = 18;   // rodeo orange
-  const rangeHue = 42;  // ...through amber/gold
+  // Thicker — was reading as thin hairlines against a full screen.
+  const baseWidth = 4;
+  const rangeWidth = 6;
+  // Two-tone brand palette (navy + orange, the app's actual colors)
+  // instead of a narrow orange→amber hue slice that read as flat/muddy
+  // orange-only. Each pipe is randomly assigned one or the other (with
+  // a little jitter) in initPipe.
+  const NAVY_HUE = 208;
+  const ORANGE_HUE = 22;
+  const HUE_JITTER = 10;
   const strokeAlpha = 0.4; // now the whole scene (solid navy backdrop), not a subtle overlay on a photo
 
   let container, canvas, ctx, center, tick, pipeProps, raf, lastStepTime;
@@ -77,7 +81,7 @@
     const life = 0;
     const ttl = baseTTL + rand(rangeTTL);
     const width = baseWidth + rand(rangeWidth);
-    const hue = baseHue + rand(rangeHue);
+    const hue = (round(rand(1)) ? NAVY_HUE : ORANGE_HUE) + (rand(HUE_JITTER) - HUE_JITTER / 2);
     pipeProps.set([x, y, direction, speed, life, ttl, width, hue], i);
   }
 

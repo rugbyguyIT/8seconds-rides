@@ -26,6 +26,7 @@
       <button class="nav-item" onclick="openCreateRideModal()"><i class="fa-solid fa-car-side"></i><span>Create ride</span></button>
       <a class="nav-item" href="/pages/dispatch.html" style="text-decoration:none"><i class="fa-solid fa-tower-broadcast"></i><span>Dispatch</span></a>
       <a class="nav-item" href="/pages/command.html" style="text-decoration:none"><i class="fa-solid fa-satellite-dish"></i><span>Command Center</span></a>
+      <a class="nav-item" href="/pages/kiosk.html" target="_blank" rel="noopener" style="text-decoration:none" title="Opens in a new window"><i class="fa-solid fa-tv"></i><span>Kiosk</span></a>
       <button class="nav-item" id="nav-settings" onclick="setView('settings')"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
     </div>
     <div class="topnav-user">
@@ -248,7 +249,11 @@
   </div>
 
   <div class="card bento-6" id="kiosk-card">
-    <div class="section-title"><i class="fa-solid fa-satellite-dish"></i> Command Center kiosk</div>
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span><i class="fa-solid fa-satellite-dish"></i> Command Center kiosk</span>
+      <a class="btn btn-sm" href="/pages/kiosk.html" target="_blank" rel="noopener" title="Open the kiosk sign-in in a new window">
+        <i class="fa-solid fa-up-right-from-square"></i> Open kiosk</a>
+    </div>
     <div class="small muted" style="margin-bottom:10px">One shared PIN unlocks <span class="mono">/pages/kiosk.html</span> straight into the Command Center board — no email or user account needed. Anyone with the PIN can sign in there.</div>
     <div id="kiosk-status" class="small muted" style="margin-bottom:12px">Loading…</div>
     <form onsubmit="saveKioskPin(event)" id="kiosk-pin-form" style="display:none">

@@ -35,6 +35,10 @@
   </div>
   <div class="cmd-main">
     <div class="cmd-map">
+      <div id="cmd-map-controls" class="cmd-map-controls">
+        <button class="btn btn-sm cmd-map-btn" onclick="recenterMap()"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
+        <button class="btn btn-sm cmd-map-btn" onclick="zoomToCity()"><i class="fa-solid fa-city"></i> Zoom to city</button>
+      </div>
       <div id="cmd-map-real" style="display:none;height:100%;border-radius:var(--r2);overflow:hidden"></div>
       <div id="cmd-map-fallback" class="map-wrap" style="height:100%">
         <svg id="cmd-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">

@@ -5,6 +5,7 @@ const me = requireLogin('admin', 'dispatch', 'display');
 let VEHICLES = [];
 let realMap = null;         // mapboxgl.Map once/if a public token is configured
 const mapMarkers = {};      // vehicle_id -> mapboxgl.Marker, kept across refreshes
+let fleetAutoFitDone = false; // only auto-fit the camera to the fleet once — after that, Recenter/Zoom to city are the only things that move the camera
 
 function tickClock() {
   const d = new Date();
@@ -108,7 +109,12 @@ function updateRealMapMarkers(pos, rideByVehicle) {
   Object.keys(mapMarkers).forEach((id) => {
     if (!seen.has(id)) { mapMarkers[id].remove(); delete mapMarkers[id]; }
   });
-  if (pos.length) {
+  // Auto-fit to the fleet once, the first time positions show up, so the
+  // kiosk opens on something sensible. After that the camera is the
+  // admin's to control — Recenter / Zoom to city — so it doesn't keep
+  // snapping back out from under them every 5s poll.
+  if (pos.length && !fleetAutoFitDone) {
+    fleetAutoFitDone = true;
     const bbox = computeBbox(pos);
     realMap.fitBounds([[bbox.minLng, bbox.minLat], [bbox.maxLng, bbox.maxLat]], { padding: 40, duration: 400, maxZoom: 16 });
   }
@@ -119,6 +125,11 @@ function updateRealMapMarkers(pos, rideByVehicle) {
 // configured, swaps the stylized SVG board for a real interactive map.
 // If it's not configured yet, the SVG board keeps working exactly as
 // before — nothing regresses for venues that haven't set it up.
+const NRG_CENTER = [-95.4103, 29.6857]; // NRG Park, Houston
+// Greater Houston metro, sw/ne — Katy to Baytown-ish, Spring to Pearland-ish.
+// Rough by design; this is a "see the whole city" button, not a precise boundary.
+const HOUSTON_BOUNDS = [[-95.85, 29.48], [-95.05, 30.02]];
+
 async function initRealMap() {
   if (typeof mapboxgl === 'undefined') return;
   const { data } = await api('/config/map-token');
@@ -127,14 +138,27 @@ async function initRealMap() {
   mapboxgl.accessToken = token;
   document.getElementById('cmd-map-fallback').style.display = 'none';
   document.getElementById('cmd-map-real').style.display = 'block';
+  document.getElementById('cmd-map-controls').style.display = 'flex';
   realMap = new mapboxgl.Map({
     container: 'cmd-map-real',
     style: 'mapbox://styles/mapbox/dark-v11',
-    center: [-95.4103, 29.6857], // NRG Park, Houston — replaced by fitBounds once vehicles report in
+    center: NRG_CENTER, // replaced by fitBounds once vehicles report in
     zoom: 13,
     attributionControl: false,
   });
   realMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+}
+
+// Map controls — Recenter snaps back to NRG Stadium (the default view and
+// where the fleet usually clusters); Zoom to city pulls out to see all of
+// Houston at once. Both are no-ops on the SVG fallback (no real geo to fly to).
+function recenterMap() {
+  if (!realMap) return;
+  realMap.flyTo({ center: NRG_CENTER, zoom: 15, duration: 700 });
+}
+function zoomToCity() {
+  if (!realMap) return;
+  realMap.fitBounds(HOUSTON_BOUNDS, { padding: 30, duration: 900 });
 }
 
 function railCard(r) {

@@ -22,7 +22,10 @@ async function refresh() {
     await Promise.all([api('/profiles'), api('/vehicles'), api('/handler-assignments')]);
   USERS = users || []; VEHICLES = vehicles || [];
 
-  document.getElementById('users').innerHTML = USERS.map(u => `
+  // Command Center's kiosk profile (migration 006) is a hidden system
+  // account, not a real user — it's managed from Settings → Command
+  // Center kiosk, not this table.
+  document.getElementById('users').innerHTML = USERS.filter(u => u.role !== 'display').map(u => `
     <tr><td><b>${esc(u.full_name)}</b><div class="small muted">${esc(u.email)}</div></td>
         <td><span class="badge badge-neutral">${esc(u.role)}</span>
             ${u.enduser_class ? `<span class="class-chip ${CLASS_CHIP[u.enduser_class] || 'class-vip'}">${esc(u.enduser_class)}</span>` : ''}</td>
@@ -285,14 +288,13 @@ async function toggleVehicle(id, active) {
 }
 function roleChanged(sel) {
   const pwRow = document.getElementById('pw-row');
-  pwRow.style.display = ['dispatch', 'admin', 'display'].includes(sel.value) ? '' : 'none';
-  document.getElementById('pw-row-label').textContent = sel.value === 'display'
-    ? 'Kiosk PIN (used to sign in at /pages/kiosk.html)' : 'Password (dispatch/admin only)';
+  pwRow.style.display = ['dispatch', 'admin'].includes(sel.value) ? '' : 'none';
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
 // ── Settings view ────────────────────────────────────────────────
 let AUDIT_LOGS = [];
+let KIOSK_PROFILE = null;
 
 async function loadSettingsView() {
   const { data: settings, error: sErr } = await api('/app-settings');
@@ -305,7 +307,42 @@ async function loadSettingsView() {
     document.getElementById('s-updated').textContent = settings.updated_at
       ? `Last updated ${fmtWhen(settings.updated_at)}` : '';
   }
-  await Promise.all([loadAuditLogs(), loadAppLogs(null), loadVehicleClasses()]);
+  await Promise.all([loadAuditLogs(), loadAppLogs(null), loadVehicleClasses(), loadKioskPin()]);
+}
+
+// Command Center's PIN lives on a single hidden system profile
+// (role='display', auto-created by migration 006) — this card is the
+// only place an admin ever touches it, and it's presented purely as a
+// PIN, never as "a user".
+async function loadKioskPin() {
+  const statusEl = document.getElementById('kiosk-status');
+  const formEl = document.getElementById('kiosk-pin-form');
+  if (!statusEl) return;
+  const { data } = await api('/profiles?role=display');
+  KIOSK_PROFILE = (data || [])[0] || null;
+  if (!KIOSK_PROFILE) {
+    statusEl.innerHTML = 'Not set up yet — run the latest database migration (<span class="mono">006_kiosk_system_profile.sql</span>) to enable this.';
+    formEl.style.display = 'none';
+    return;
+  }
+  // password_hash is never returned to the client (safe-profile), so we
+  // can't tell from here whether a PIN is already set — the form always
+  // shows as "set / change" and is harmless to submit either way.
+  statusEl.textContent = 'Set or change the shared PIN below — /pages/kiosk.html accepts it as soon as you save.';
+  document.getElementById('kiosk-pin-label').textContent = 'Set / change kiosk PIN';
+  formEl.style.display = '';
+}
+
+async function saveKioskPin(ev) {
+  ev.preventDefault();
+  const f = ev.target;
+  const pin = f.pin.value.trim();
+  if (!KIOSK_PROFILE) return toastMsg('Not ready', 'Run migration 006 first.');
+  if (!/^\d{4,}$/.test(pin)) return toastMsg('Not saved', 'PIN should be 4+ digits, numbers only.');
+  const { error } = await api('/profiles/' + KIOSK_PROFILE.id, 'PATCH', { password: pin, status: 'active' });
+  if (error) return toastMsg('Could not save PIN', error);
+  toastMsg('Kiosk PIN saved', '/pages/kiosk.html is ready to use.');
+  f.reset(); loadKioskPin();
 }
 
 async function saveAppSettings(ev) {

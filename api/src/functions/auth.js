@@ -125,12 +125,14 @@ app.http('authOtpVerify', {
   },
 });
 
-// Command Center kiosk sign-in — no email, just a shared PIN typed on a
-// touchscreen (see pages/kiosk.html). The PIN IS the password for a
-// "Display (command room)" account (Admin → Create user → role Display,
-// set a numeric password there). Matches against every active display
-// account since a kiosk has no idea which one it is until the PIN
-// resolves it; in practice there's only ever one or a handful.
+// Command Center kiosk sign-in — no email, no user account, just a
+// shared PIN typed on a touchscreen (see pages/kiosk.html). Under the
+// hood the PIN IS the password for a single hidden "display"-role
+// system profile that migration 006 auto-provisions — admins set/change
+// the PIN from Admin → Settings → Command Center kiosk, never by
+// creating a user. Matches against every active display account (in
+// practice there's exactly one) since a kiosk has no idea which one it
+// is until the PIN resolves it.
 app.http('authPin', {
   methods: ['POST'], authLevel: 'anonymous', route: 'auth/pin',
   handler: async (request) => {

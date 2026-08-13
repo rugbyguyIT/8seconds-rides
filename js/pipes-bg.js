@@ -25,8 +25,12 @@
   const turnCount = 8;
   const turnAmount = (360 / turnCount) * TO_RAD;
   const turnChanceRange = 58;
-  const baseSpeed = 0.4;
-  const rangeSpeed = 0.8;
+  // Tuned for a full-viewport canvas (the original demo's speed values
+  // were sized for a much smaller bounded box — unchanged, the same
+  // px/frame speed reads as a crawl once stretched across a whole
+  // 1920px+ screen). ~4x the original pace so it visibly moves.
+  const baseSpeed = 1.5;
+  const rangeSpeed = 2.5;
   const baseTTL = 100;
   const rangeTTL = 260;
   const baseWidth = 2;
@@ -88,31 +92,38 @@
   }
   function updatePipe(i) {
     const i2 = 1 + i, i3 = 2 + i, i5 = 4 + i, i6 = 5 + i, i7 = 6 + i, i8 = 7 + i;
-    let x = pipeProps[i], y = pipeProps[i2], direction = pipeProps[i3];
+    const x = pipeProps[i], y = pipeProps[i2], direction = pipeProps[i3];
     const speed = pipeProps[4 + i], life = pipeProps[i5], ttl = pipeProps[i6], width = pipeProps[i7], hue = pipeProps[i8];
 
-    drawPipe(x, y, life, ttl, width, hue);
-
     const newLife = life + 1;
-    x += cos(direction) * speed;
-    y += sin(direction) * speed;
-    const turnChance = !(tick % round(rand(turnChanceRange))) && (!(round(x) % 6) || !(round(y) % 6));
+    let nx = x + cos(direction) * speed;
+    let ny = y + sin(direction) * speed;
+
+    // Draw a stroked segment from the old position to the new one each
+    // frame — a continuous flowing line, not a stamped circle at each
+    // point (which, chained frame to frame, reads as a trail of
+    // separate dots rather than a single moving pipe).
+    drawPipe(x, y, nx, ny, life, ttl, width, hue);
+
+    const turnChance = !(tick % round(rand(turnChanceRange))) && (!(round(nx) % 6) || !(round(ny) % 6));
     const turnBias = round(rand(1)) ? -1 : 1;
-    direction += turnChance ? turnAmount * turnBias : 0;
+    let direction2 = direction + (turnChance ? turnAmount * turnBias : 0);
 
-    if (x > canvas.width) x = 0; if (x < 0) x = canvas.width;
-    if (y > canvas.height) y = 0; if (y < 0) y = canvas.height;
+    if (nx > canvas.width) nx = 0; if (nx < 0) nx = canvas.width;
+    if (ny > canvas.height) ny = 0; if (ny < 0) ny = canvas.height;
 
-    pipeProps[i] = x; pipeProps[i2] = y; pipeProps[i3] = direction; pipeProps[i5] = newLife;
+    pipeProps[i] = nx; pipeProps[i2] = ny; pipeProps[i3] = direction2; pipeProps[i5] = newLife;
     if (newLife > ttl) initPipe(i);
   }
-  function drawPipe(x, y, life, ttl, width, hue) {
+  function drawPipe(x1, y1, x2, y2, life, ttl, width, hue) {
     ctx.save();
     ctx.strokeStyle = `hsla(${hue},85%,58%,${fadeInOut(life, ttl) * strokeAlpha})`;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(x, y, width, 0, TAU);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
-    ctx.closePath();
     ctx.restore();
   }
 

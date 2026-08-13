@@ -1,6 +1,6 @@
 // Driver portal — assigned pickups, state buttons, position pings, issue alerts
 const me = requireLogin('driver');
-let ACTIVE = null, pingTimer = null, MY_VEHICLE = null, MY_REQUEST = null, ALL_VEHICLES = [];
+let ACTIVE = null, pingTimer = null, MY_VEHICLE = null, MY_REQUEST = null, ALL_VEHICLES = [], MY_VCLASSES = [];
 
 const NEXT_ACTION = {
   assigned:    { action: 'start',    label: 'START DRIVE',        icon: 'fa-play', cls: '' },
@@ -124,19 +124,51 @@ function renderVehicle() {
 }
 
 async function requestVehicle() {
-  const options = ALL_VEHICLES.filter(v => v.active).map(v =>
+  if (!MY_VCLASSES.length) {
+    const { data } = await api('/vehicle-classes');
+    MY_VCLASSES = (data || []).filter(c => c.active !== false);
+  }
+  const existing = ALL_VEHICLES.filter(v => v.active).map(v =>
     `<option value="${v.id}">${esc(v.label)}${v.driver_id && v.driver_id !== me.id ? ' (in use)' : ''}</option>`);
-  if (!options.length) return toastMsg('No vehicles available', 'Ask dispatch to add one first.');
+  const options = existing.concat(`<option value="__new__">+ Add my own car…</option>`);
+  const classOptions = MY_VCLASSES.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
   const f = await formModal(MY_VEHICLE ? 'Change my vehicle' : 'Choose my vehicle', `
     <div class="form-group"><label class="form-label">Vehicle</label>
-      <select class="form-input" name="vehicle_id">${options.join('')}</select></div>
-    <div class="small muted">Dispatch or admin will approve this before it's official.</div>
+      <select class="form-input" name="vehicle_id" onchange="driverVehiclePickChanged(this)">${options.join('')}</select></div>
+    <div id="new-car-fields" style="display:${existing.length ? 'none' : 'block'};margin-top:10px">
+      <div class="form-group"><label class="form-label">Description</label>
+        <input class="form-input" name="new_label" placeholder="e.g. White Chevy Tahoe" /></div>
+      <div class="form-group"><label class="form-label">Plate</label>
+        <input class="form-input" name="new_plate" placeholder="Optional" /></div>
+      ${classOptions ? `<div class="form-group"><label class="form-label">Vehicle type</label>
+        <select class="form-input" name="new_vclass">${classOptions}</select></div>` : ''}
+      <div class="small muted">The vehicle type can't be changed once it's saved — dispatch can retire it and you can add a new one if that changes.</div>
+    </div>
+    <div class="small muted" style="margin-top:10px">Dispatch or admin will approve this before it's official.</div>
   `, { icon: 'fa-car', submitLabel: 'Request', wide: false });
   if (!f) return;
-  const { error } = await api('/vehicle-requests', 'POST', { vehicle_id: f.vehicle_id.value });
+
+  let vehicleId = f.vehicle_id.value;
+  if (vehicleId === '__new__') {
+    const label = f.new_label.value.trim();
+    if (!label) return toastMsg('Description required', 'Give your car a short description (e.g. "White Chevy Tahoe").');
+    const { data: created, error: createErr } = await api('/vehicles', 'POST', {
+      label, plate: f.new_plate.value.trim() || null, vclass: f.new_vclass ? f.new_vclass.value : null,
+    });
+    if (createErr) return toastMsg('Could not add vehicle', createErr);
+    ALL_VEHICLES.push(created);
+    vehicleId = created.id;
+  }
+
+  const { error } = await api('/vehicle-requests', 'POST', { vehicle_id: vehicleId });
   if (error) return toastMsg('Could not send request', error);
   toastMsg('Request sent', 'Waiting on dispatch/admin approval.');
   refreshVehicle();
+}
+
+function driverVehiclePickChanged(sel) {
+  const box = document.getElementById('new-car-fields');
+  if (box) box.style.display = sel.value === '__new__' ? 'block' : 'none';
 }
 
 async function cancelMyVehicleRequest() {

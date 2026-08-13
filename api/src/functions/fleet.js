@@ -16,11 +16,21 @@ app.http('vehicles', {
       const r = await query(`SELECT * FROM public.vehicles ORDER BY label`);
       return json(r.rows);
     }
-    const { error, status } = await requireRole(request, 'dispatch', 'admin');
+    // Dispatch/admin manage the whole fleet. A driver can also add their
+    // own vehicle (e.g. no car assigned yet, or switching to a personal
+    // vehicle) — but only the basic details; no photo/hang tag at create
+    // time and no self-assigning (driver_id stays null so it still has to
+    // go through the vehicle-requests approval queue), and the class they
+    // pick is locked in from here on — vehiclesUpdate's driver-facing PATCH
+    // below excludes 'class', so a driver can never change it after creation.
+    const { user, error, status } = await requireAuth(request);
     if (error) return err(error, status);
+    const isPrivileged = ['dispatch', 'admin'].includes(user.role);
+    if (!isPrivileged && user.role !== 'driver') return err('Forbidden', 403);
     let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
-    const { label, plate, capacity, vclass, color_desc, photo_url, hang_tag, driver_id } = body || {};
+    let { label, plate, capacity, vclass, color_desc, photo_url, hang_tag, driver_id } = body || {};
     if (!label) return err('label required');
+    if (!isPrivileged) { photo_url = null; hang_tag = null; driver_id = null; }
     try {
       // No explicit capacity? Fall back to the chosen class's default seat
       // count (excluding driver) rather than a hardcoded 6, so classes like

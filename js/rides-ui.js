@@ -148,9 +148,11 @@ function promptModal(message, opts) {
   const multiline = !!opts.multiline;
   return new Promise((resolve) => {
     function finish(val) { _closeUiModal(); resolve(val); }
+    // opts.value pre-fills the field for renames/edits (vs. opts.placeholder,
+    // which is for fresh input) — text starts selected so typing replaces it.
     const fieldHtml = multiline
-      ? `<textarea class="form-input" rows="3" placeholder="${esc(opts.placeholder || '')}" style="resize:vertical"></textarea>`
-      : `<input class="form-input" type="text" placeholder="${esc(opts.placeholder || '')}" />`;
+      ? `<textarea class="form-input" rows="3" placeholder="${esc(opts.placeholder || '')}" style="resize:vertical">${esc(opts.value || '')}</textarea>`
+      : `<input class="form-input" type="text" placeholder="${esc(opts.placeholder || '')}" value="${esc(opts.value || '')}" />`;
     _openUiModal(`
       <div class="section-title" style="margin-bottom:8px"><i class="fa-solid fa-pen"></i> ${esc(opts.title || 'One more thing')}</div>
       ${message ? `<div class="small muted" style="line-height:1.55;margin-bottom:12px">${esc(message)}</div>` : ''}
@@ -172,6 +174,7 @@ function promptModal(message, opts) {
       ov.querySelector('[data-act="ok"]').addEventListener('click', submit);
       field.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !multiline) { e.preventDefault(); submit(); } });
       field.focus();
+      if (opts.value) field.select();
     }, () => finish(null));
   });
 }

@@ -241,6 +241,7 @@ function renderVehicleClasses() {
           <div><b>${esc(c.label)}</b><div class="small mono muted">${esc(c.key)}</div></div></td>
         <td class="small muted" style="white-space:nowrap"><i class="fa-solid fa-chair"></i> ${c.default_capacity || 6} seats</td>
         <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="editClassName('${c.id}')" title="Edit name"><i class="fa-solid fa-pen"></i></button>
           <button class="btn btn-sm" onclick="editClassCapacity('${c.id}')" title="Edit seats"><i class="fa-solid fa-chair"></i></button>
           <button class="btn btn-sm" onclick="openPhotoModal('class','${c.id}','${esc(c.label)}')" title="Class photo"><i class="fa-solid fa-camera"></i></button>
           <button class="btn btn-danger btn-sm" onclick="toggleClassActive('${c.id}',${c.active})">${c.active ? 'Retire' : 'Restore'}</button></td></tr>`).join('')
@@ -260,11 +261,26 @@ async function toggleClassActive(id, active) {
   await api('/vehicle-classes/' + id, 'PATCH', { active: !active }); loadVehicleClasses();
 }
 
+// The key (slug) stays fixed once created — it's what vehicles.class
+// actually references — but the display label is just presentation and
+// safe to rename any time (e.g. fixing a typo or renaming "SUV" to
+// "Suburban / SUV").
+async function editClassName(id) {
+  const c = VCLASSES.find(x => x.id === id);
+  if (!c) return;
+  const val = await promptModal(`Key stays "${c.key}" — this only changes what's shown.`,
+    { title: `Rename — ${c.label}`, value: c.label, okLabel: 'Save' });
+  if (!val) return;
+  const { error } = await api('/vehicle-classes/' + id, 'PATCH', { label: val.trim() });
+  if (error) return toastMsg('Could not rename', error);
+  toastMsg('Class renamed', val.trim()); loadVehicleClasses();
+}
+
 async function editClassCapacity(id) {
   const c = VCLASSES.find(x => x.id === id);
   if (!c) return;
   const val = await promptModal('How many riders can this vehicle class seat, not counting the driver?',
-    { title: `Seats — ${c.label}`, placeholder: 'e.g. 6', okLabel: 'Save' });
+    { title: `Seats — ${c.label}`, value: String(c.default_capacity || 6), okLabel: 'Save' });
   if (!val) return;
   const cap = parseInt(val, 10);
   if (!Number.isFinite(cap) || cap < 1) return toastMsg('Not saved', 'Enter a whole number of 1 or more.');

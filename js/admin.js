@@ -533,7 +533,7 @@ async function loadKioskPin() {
   // can't tell from here whether a PIN is already set — the form always
   // shows as "set / change" and is harmless to submit either way.
   statusEl.textContent = 'Set or change the shared PIN below — /pages/kiosk.html accepts it as soon as you save.';
-  document.getElementById('kiosk-pin-label').textContent = 'Set / change kiosk PIN';
+  document.getElementById('kiosk-pin-label').textContent = 'Set / change kiosk PIN (exactly 8 digits)';
   formEl.style.display = '';
 }
 
@@ -542,7 +542,7 @@ async function saveKioskPin(ev) {
   const f = ev.target;
   const pin = f.pin.value.trim();
   if (!KIOSK_PROFILE) return toastMsg('Not ready', 'Run migration 006 first.');
-  if (!/^\d{4,}$/.test(pin)) return toastMsg('Not saved', 'PIN should be 4+ digits, numbers only.');
+  if (!/^\d{8}$/.test(pin)) return toastMsg('Not saved', 'PIN must be exactly 8 digits, numbers only.');
   const { error } = await api('/profiles/' + KIOSK_PROFILE.id, 'PATCH', { password: pin, status: 'active' });
   if (error) return toastMsg('Could not save PIN', error);
   toastMsg('Kiosk PIN saved', '/pages/kiosk.html is ready to use.');

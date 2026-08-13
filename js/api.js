@@ -28,12 +28,24 @@ function signOut() {
 
 async function api(path, method = 'GET', body) {
   try {
+    // Snapshot whether we HAD a session token before this call — a 401
+    // only means "your session expired" when we actually sent one.
+    // Anonymous auth endpoints (identify/login/otp/pin) also return 401
+    // for "wrong credentials", and those calls never carry a token —
+    // treating every 401 as a forced sign-out used to yank the kiosk
+    // (and login) screen straight to /index.html on a wrong PIN/password
+    // instead of letting the caller show "Incorrect PIN" in place.
+    const hadToken = !!getToken();
     const res = await fetch('/api' + path, {
       method,
       headers: { 'Content-Type': 'application/json', 'x-rides-token': getToken() },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (res.status === 401) { signOut(); return { data: null, error: 'Session expired' }; }
+    if (res.status === 401) {
+      const data = await res.json().catch(() => null);
+      if (hadToken) { signOut(); return { data: null, error: 'Session expired' }; }
+      return { data: null, error: (data && data.error) || 'Unauthorized' };
+    }
     const data = await res.json().catch(() => null);
     if (!res.ok) return { data: null, error: (data && data.error) || `HTTP ${res.status}` };
     return { data, error: null };

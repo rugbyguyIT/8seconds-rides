@@ -1,20 +1,24 @@
 // Command Center kiosk sign-in — a touchscreen numeric keypad, no email.
 // The PIN matches a "Display (command room)" account's password
 // (Admin → Create user → role Display). See api/src/functions/auth.js
-// authPin for the matching logic.
+// authPin for the matching logic. PINs are always exactly 8 digits
+// (enforced when set in Admin → Settings), so the dot row is fixed at
+// 8 rather than growing with input.
+const PIN_LENGTH = 8;
 let pin = '';
 
 function kioskRenderDots() {
   const el = document.getElementById('kiosk-dots');
-  el.innerHTML = Array.from({ length: Math.max(pin.length, 4) }, (_, i) =>
+  el.innerHTML = Array.from({ length: PIN_LENGTH }, (_, i) =>
     `<span class="kiosk-dot${i < pin.length ? ' filled' : ''}"></span>`).join('');
 }
 
 function kioskPress(d) {
-  if (pin.length >= 12) return;
+  if (pin.length >= PIN_LENGTH) return;
   pin += d;
   document.getElementById('kiosk-error').style.display = 'none';
   kioskRenderDots();
+  if (pin.length === PIN_LENGTH) kioskSubmit();
 }
 function kioskClear() {
   pin = '';

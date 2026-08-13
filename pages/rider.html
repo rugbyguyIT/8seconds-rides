@@ -8,12 +8,13 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Oswald:wght@400;500;600;700&family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/rider-glass.css" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=2" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" />
-  <meta name="theme-color" content="#002E5D" />
+  <meta name="theme-color" content="#00203f" />
 </head>
-<body>
+<body class="theme-glass">
 <div class="shell">
   <nav class="topnav">
     <div class="topnav-brand">
@@ -32,7 +33,9 @@
       <div><div><div class="page-title">My Rides</div><div class="page-sub">Request and track your rides</div></div></div>
     </div>
     <div class="main-panel">
-<div class="card" style="margin-bottom:22px">
+<div id="sec-live" class="section-title"><i class="fa-solid fa-tower-broadcast"></i> Live now</div>
+<div id="live"></div>
+<div id="request-card" class="card" style="margin:18px 0 22px">
   <div class="section-title"><i class="fa-solid fa-plus"></i> Request a ride</div>
   <form onsubmit="submitRequest(event)">
     <div class="form-row">
@@ -59,9 +62,7 @@
     <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit request</button>
   </form>
 </div>
-<div class="section-title"><i class="fa-solid fa-tower-broadcast"></i> Live now</div>
-<div id="live"></div>
-<div class="section-title" style="margin-top:18px"><i class="fa-solid fa-calendar-day"></i> Upcoming</div>
+<div id="sec-upcoming" class="section-title"><i class="fa-solid fa-calendar-day"></i> Upcoming</div>
 <div id="upcoming"></div>
 <div class="section-title" style="margin-top:18px"><i class="fa-solid fa-clock-rotate-left"></i> Recent</div>
 <div id="past"></div>
@@ -69,6 +70,13 @@
     <footer class="site-footer">8 Second Rides · Houston Livestock Show and Rodeo</footer>
   </div>
 </div>
+<button class="rider-fab" onclick="document.getElementById('request-card').scrollIntoView({behavior:'smooth',block:'start'})" aria-label="Request a ride"><i class="fa-solid fa-plus"></i></button>
+<nav class="rider-tabbar">
+  <button class="rider-tab active" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="fa-solid fa-house"></i>Home</button>
+  <button class="rider-tab" onclick="document.getElementById('sec-upcoming').scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-car"></i>Rides</button>
+  <button class="rider-tab" onclick="document.getElementById('sec-live').scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-map-location-dot"></i>Track</button>
+  <button class="rider-tab" onclick="signOut()"><i class="fa-solid fa-user"></i>Profile</button>
+</nav>
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/push.js"></script>

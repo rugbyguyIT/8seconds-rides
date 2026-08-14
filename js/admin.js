@@ -253,11 +253,59 @@ function renderDrivers() {
       <td class="mono small">${v ? esc(v.plate || '—') : '—'}</td>
       <td class="mono small">${v ? esc(v.hang_tag || '—') : '—'}</td>
       <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" onclick="editDriverModal('${d.id}')" title="Edit driver — name, email, mobile, photo, status"><i class="fa-solid fa-id-badge"></i></button>
         <button class="btn btn-sm" onclick="assignDriverVehicle('${d.id}')" title="${v ? 'Reassign vehicle' : 'Assign vehicle'}"><i class="fa-solid fa-car"></i></button>
         ${v ? `<button class="btn btn-sm" onclick="openPhotoModal('vehicle','${v.id}','${esc(v.label)}')" title="Vehicle photo"><i class="fa-solid fa-camera"></i></button>
         <button class="btn btn-sm" onclick="editVehicleSetup('${v.id}')" title="Plate / hang tag"><i class="fa-solid fa-pen"></i></button>` : ''}
       </td></tr>`;
   }).join('') : '<tr><td colspan="6" class="small muted">No drivers registered yet — create one under Users.</td></tr>';
+}
+
+// Everything about the driver themself (as opposed to their vehicle,
+// which has its own car/camera/pen actions right next to this one):
+// name, email, mobile number for OTP sign-in, active/inactive, and their
+// own ID photo. Photo here is upload-only — see profiles.js's
+// profilePhoto handler for why AI generation isn't offered for a real
+// person's identifying photo the way it is for a vehicle.
+async function editDriverModal(driverId) {
+  const d = USERS.find(x => x.id === driverId);
+  if (!d) return;
+  const f = await formModal(`Edit driver — ${d.full_name}`, `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" value="${esc(d.first_name)}" required /></div>
+      <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" value="${esc(d.last_name)}" required /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" value="${esc(d.email)}" required /></div>
+      <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" value="${esc(d.phone_mobile || '')}" placeholder="713 555 0100" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" name="status">
+        <option value="active" ${d.status === 'active' ? 'selected' : ''}>Active</option>
+        <option value="inactive" ${d.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Photo</label>
+      <input class="form-input" type="file" name="photo_file" accept="image/*" />
+      <div class="small muted" style="margin-top:4px">Upload a real photo — this identifies the driver on the grounds, so there's no AI-generate option here (unlike vehicle photos).</div></div>
+  `, { icon: 'fa-id-badge', submitLabel: 'Save' });
+  if (!f) return;
+  const body = { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(),
+                 phone_mobile: f.phone.value.trim() || null, status: f.status.value };
+  const newEmail = f.email.value.trim().toLowerCase();
+  if (newEmail !== d.email) body.email = newEmail;
+  const { error } = await api('/profiles/' + driverId, 'PATCH', body);
+  if (error) return toastMsg('Could not save', error);
+  if (f.photo_file.files[0]) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(f.photo_file.files[0]);
+    });
+    const { error: photoErr } = await api('/profiles/' + driverId + '/photo', 'POST', { mode: 'upload', data_url: dataUrl });
+    if (photoErr) { toastMsg('Saved details, but the photo failed', photoErr); refresh(); return; }
+  }
+  toastMsg('Driver updated', `${f.first_name.value} ${f.last_name.value}`); refresh();
 }
 
 async function assignDriverVehicle(driverId) {

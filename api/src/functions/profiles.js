@@ -16,6 +16,7 @@ const { app } = require('@azure/functions');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
 const { json, err, requireAuth, requireRole, ROLES, logAudit, signSession } = require('../middleware');
+const blob = require('../blob');
 
 const SAFE = `id, email, first_name, last_name, full_name, phone_mobile, role, enduser_class, photo_url, status, sms_consent, created_at`;
 // Admin "view as" — only makes sense for the two roles whose whole
@@ -128,6 +129,33 @@ app.http('profilesUpdate', {
     } catch (e) {
       if (e.code === '23505') return err('A user with that email already exists', 409);
       throw e;
+    }
+  },
+});
+
+// A person's photo (drivers, in practice — it's how they're identified on
+// the grounds) is upload-only, deliberately unlike vehicle/vehicle-class
+// photos: those can be AI-generated because they only need to depict a
+// vehicle type, but fabricating a photo of a specific real person to
+// stand in as their ID photo would be actively misleading, so that
+// option simply isn't offered here.
+app.http('profilePhoto', {
+  methods: ['POST'], authLevel: 'anonymous', route: 'profiles/{id}/photo',
+  handler: async (request) => {
+    const { user, error, status } = await requireRole(request, 'admin');
+    if (error) return err(error, status);
+    if (!blob.configured()) return err('Photo storage is not configured yet (AZURE_STORAGE_CONNECTION_STRING missing).', 503);
+    let body; try { body = await request.json(); } catch { return err('Invalid JSON'); }
+    if (body.mode !== 'upload' || !body.data_url) return err('Choose a photo file to upload.');
+    const id = request.params.id;
+    try {
+      const url = await blob.uploadDataUrl('profile', id, body.data_url);
+      const r = await query(`UPDATE public.profiles SET photo_url = $1 WHERE id = $2 RETURNING ${SAFE}`, [url, id]);
+      if (!r.rows.length) return err('Not found', 404);
+      await logAudit(request, { profile_id: user.sub, email: user.email, action: 'photo_updated', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
+      return json(r.rows[0]);
+    } catch (e) {
+      return err(e.message || 'Could not save photo', e.status || 500);
     }
   },
 });

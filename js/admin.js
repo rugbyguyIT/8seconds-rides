@@ -33,7 +33,7 @@ function toggleAdminMapExpand() {
   setTimeout(() => adminMap.resize(), 260);
 }
 
-// ── View switching (Dashboard / Settings) ───────────────────────
+// ── View switching (Dashboard / Settings) ────────────────────────
 const VIEW_TITLES = {
   dashboard: ['Admin', 'Users, fleet, and system settings'],
   settings:  ['Settings', 'App configuration, security audit log, and application logs'],
@@ -96,7 +96,7 @@ async function refresh() {
   renderDrivers();
 }
 
-// ── Drivers & their vehicles ─────────────────────────────────────
+// ── Drivers & their vehicles ────────────────────────────
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -400,16 +400,48 @@ async function impersonate(id) {
   window.location.href = data.portal;
 }
 
-async function createUser(ev) {
-  ev.preventDefault();
-  const f = ev.target;
+// "Create user" used to be a permanently-visible form card next to the
+// Users table — folded into a popup (formModal) reached via the button
+// in the table's header instead, so the Users list gets the full section
+// width (see the Fleet/Users-cutoff fix). roleChanged (below) still
+// targets #pw-row / #class-row, which live inside this modal's markup now.
+async function openCreateUserModal() {
+  const f = await formModal('Create user', `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" required /></div>
+      <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" required /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" required /></div>
+      <div class="form-group"><label class="form-label">Mobile (OTP sign-in)</label><input class="form-input" name="phone" placeholder="713 555 0100" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Role</label>
+        <select class="form-input" name="role" onchange="roleChanged(this)">
+          <option value="rider">Rider (VIP / end user)</option><option value="handler">Handler / EA</option>
+          <option value="driver">Driver</option><option value="dispatch">Dispatch (12 h session)</option>
+          <option value="admin">Admin (24 h session)</option>
+        </select></div>
+      <div class="form-group" id="class-row"><label class="form-label">Rider class</label>
+        <select class="form-input" name="uclass"><option value="vip">VIP</option><option value="executive">Executive</option>
+        <option value="performer">Performer</option><option value="guest">Guest</option></select></div>
+    </div>
+    <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
+      <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
+    <div class="small muted" style="margin:-6px 0 12px">Command Center's kiosk PIN isn't a user account — set it under Settings → Command Center kiosk.</div>
+    <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
+      <input class="form-input" name="photo" placeholder="https://…" /></div>
+    <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">SMS consent on file</span>
+      <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>
+  `, { icon: 'fa-user-plus', submitLabel: 'Create' });
+  if (!f) return;
   const body = { email: f.email.value, first_name: f.first_name.value, last_name: f.last_name.value, role: f.role.value,
                  phone_mobile: f.phone.value || null, enduser_class: f.uclass.value || null,
                  password: f.password.value || null, sms_consent: f.sms.checked, photo_url: f.photo.value || null };
   const { error } = await api('/profiles', 'POST', body);
   if (error) { appLog('warn', 'admin.create_user_failed', error); return toastMsg('Could not create user', error); }
   toastMsg('User created', `${body.first_name} ${body.last_name} (${body.role}) can now sign in.`);
-  f.reset(); refresh();
+  refresh();
 }
 // Small inline modal — chained window.prompt() calls are unreliable
 // (browsers frequently suppress the second dialog when two fire back
@@ -501,7 +533,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// ── Settings view ────────────────────────────────────────────────
+// ── Settings view ─────────────────────────────
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 

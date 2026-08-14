@@ -22,7 +22,7 @@
   --fw-base:400; --fw-med:500; --fw-bold:600; --fw-xbold:700;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;min-height:100%;scroll-behavior:smooth}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;min-height:100%;scroll-behavior:smooth;overflow-x:hidden}
 body{
   font-family:'Inter','DM Sans',system-ui,sans-serif;color:var(--text);min-height:100vh;
   font-size:var(--fs-base);font-weight:var(--fw-base);line-height:1.65;
@@ -32,6 +32,7 @@ body{
     radial-gradient(ellipse 45% 40% at 90% 85%, rgba(0,118,169,0.08) 0%, transparent 60%),
     var(--bg);
   background-attachment:fixed;
+  overflow-x:hidden;
 }
 a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-track{background:transparent}
@@ -193,7 +194,14 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .switch input:checked + .slider::before{transform:translateX(18px)}
 
 /* ── Bento ── */
+/* min-width:0 on every grid item — without it, grid tracks default to
+   min-width:auto and size themselves to fit their widest child's
+   min-content (e.g. the Users table's Actions column), which pushes the
+   whole column — and on narrow/PWA viewports, the whole page — wider
+   than the screen instead of letting a card's own overflow-x:auto
+   contain the scroll. */
 .bento-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-bottom:24px}
+.bento-grid>*{min-width:0}
 .bento-4{grid-column:span 4}.bento-5{grid-column:span 5}.bento-6{grid-column:span 6}
 .bento-7{grid-column:span 7}.bento-8{grid-column:span 8}.bento-12{grid-column:span 12}
 @media(max-width:900px){.bento-grid{grid-template-columns:1fr}[class*="bento-"]{grid-column:span 1}}

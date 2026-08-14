@@ -56,14 +56,70 @@ function locationOptions(locs, sel) {
     locs.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
 }
 
-// ─────────────────────────────────────────────────────────────
+// "Create a ride" on someone's behalf — used by both Admin (top nav,
+// every view) and Dispatch (its own queue), since either role should
+// be able to log a ride for a VIP who calls it in instead of using the
+// app themselves. Lives here (not admin.js) so it works on any portal
+// whose shared topnav (renderTopNav, below) offers it. Riders and
+// locations are fetched fresh on open rather than cached, since this
+// is an occasional action, not something worth keeping global state
+// in sync for on every page that might use it.
+async function openCreateRideModal() {
+  const [{ data: riders }, { data: locs }] = await Promise.all([api('/profiles?role=rider'), api('/locations')]);
+  const rs = riders || [], locations = locs || [];
+  const riderOptions = rs.length
+    ? rs.map(r => `<option value="${r.id}">${esc(r.full_name)}${r.enduser_class ? ' — ' + esc(r.enduser_class) : ''}</option>`).join('')
+    : '<option value="">No riders yet — create one first</option>';
+  const fieldsHtml = `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rider</label><select class="form-input" name="rider" required>${riderOptions}</select></div>
+      <div class="form-group"><label class="form-label">Party size</label>
+        <select class="form-input" name="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Pickup</label>
+        <select class="form-input" name="pickup">${locationOptions(locations, 'Choose a pickup point…')}</select>
+        <input class="form-input" name="pickup_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+      <div class="form-group"><label class="form-label">Drop-off</label>
+        <select class="form-input" name="dropoff">${locationOptions(locations, 'Choose a destination…')}</select>
+        <input class="form-input" name="dropoff_text" placeholder="…or type an address" style="margin-top:6px" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date &amp; time (blank = ASAP)</label><input class="form-input" type="datetime-local" name="when" /></div>
+      <div class="form-group"><label class="form-label">Notes for dispatch (optional)</label><input class="form-input" name="notes" placeholder="e.g. meeting the group at valet stand B" /></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Round trip — driver waits and returns</span>
+        <label class="switch"><input type="checkbox" name="round_trip"><span class="slider"></span></label></div>
+      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Wheelchair-accessible vehicle needed</span>
+        <label class="switch"><input type="checkbox" name="ada"><span class="slider"></span></label></div>
+    </div>`;
+  const f = await formModal('Create a ride', fieldsHtml, { icon: 'fa-car-side', submitLabel: 'Submit request' });
+  if (!f) return;
+  if (!f.rider.value) return toastMsg('Pick a rider first', 'Choose who this ride is for.');
+  const body = {
+    enduser_id: f.rider.value,
+    pickup_location_id: f.pickup.value || null, dropoff_location_id: f.dropoff.value || null,
+    pickup_text: f.pickup.value ? null : f.pickup_text.value || null,
+    dropoff_text: f.dropoff.value ? null : f.dropoff_text.value || null,
+    scheduled_at: f.when.value ? new Date(f.when.value).toISOString() : null,
+    party_size: parseInt(f.party.value, 10), round_trip: f.round_trip.checked,
+    ada_required: f.ada.checked, notes: f.notes.value || null,
+  };
+  const { error } = await api('/rides', 'POST', body);
+  if (error) return toastMsg('Could not create ride', error);
+  toastMsg('Ride created', 'Dispatch has been notified.');
+  if (typeof refresh === 'function') refresh();
+}
+
+// ──────────────────────────────────────────────────────────
 // Custom confirm/prompt/form modals — replace the browser's native
 // confirm()/prompt() dialogs (which can't be styled and look jarring
 // against the app's glass UI) with app-styled equivalents. All three
 // are Promise-based so call sites just `await` them like the natives
 // they replace. Shared across every portal since rides-ui.js loads
 // everywhere except the login page.
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
 (function injectModalStyles() {
   if (document.getElementById('ui-modal-styles')) return;
   const s = document.createElement('style');
@@ -220,6 +276,51 @@ function toggleHighContrast(force) {
 (function initHighContrast() {
   try { if (localStorage.getItem('hc_mode') === '1') document.body.classList.add('hc'); } catch {}
 })();
+
+// ── Theme picker (Classic / Modern) ──
+// Same two skins as 8secondsevents.com — "Classic" (the HLSR orange &
+// navy glass look, default) and "Modern" (a warm neutral alternate,
+// see [data-theme="modern"] in css/style.css). Purely a local device
+// preference, same pattern as high-contrast mode above: localStorage
+// only, not synced to the account. Every portal's <head> also runs a
+// tiny inline copy of this read (before css/style.css loads) so the
+// page never flashes classic-then-modern on load; this just keeps the
+// toggle button and any later DOM in sync with that early read.
+const THEME_KEY = 'rides_theme';
+function getTheme() { try { return localStorage.getItem(THEME_KEY) || 'classic'; } catch { return 'classic'; } }
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  _renderThemeToggleBtn();
+}
+function toggleTheme() { setTheme(getTheme() === 'modern' ? 'classic' : 'modern'); }
+function _renderThemeToggleBtn() {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  const isModern = getTheme() === 'modern';
+  btn.innerHTML = `<i class="fa-solid ${isModern ? 'fa-palette' : 'fa-circle-half-stroke'}"></i>`;
+  btn.title = isModern ? 'Switch to Classic theme' : 'Switch to Modern theme';
+}
+// Inserted into .topnav-user (before Sign out) on every portal that has
+// one — the login page, Command Center board, and kiosk PIN screen
+// don't, so this quietly no-ops there.
+(function initThemeToggle() {
+  function inject() {
+    const host = document.querySelector('.topnav-user');
+    const signOutBtn = host && host.querySelector('button[onclick="signOut()"]');
+    if (!host || !signOutBtn || document.getElementById('theme-toggle-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'theme-toggle-btn';
+    btn.className = 'btn btn-sm';
+    btn.style.marginLeft = '8px';
+    btn.onclick = toggleTheme;
+    host.insertBefore(btn, signOutBtn);
+    _renderThemeToggleBtn();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inject);
+  else inject();
+})();
+
 // ── Shared top nav ──
 // Populates any EMPTY .topnav-links with the right links for the
 // signed-in user's role, so the menu bar persists when navigating
@@ -239,13 +340,22 @@ function renderTopNav() {
   const path = window.location.pathname;
   const link = (href, icon, label) =>
     `<a class="nav-item${path === href ? ' active' : ''}" href="${href}" style="text-decoration:none"><i class="fa-solid ${icon}"></i><span>${label}</span></a>`;
+  // Not a real link (opens a modal, not a page) — admin and dispatch
+  // can both log a ride on someone's behalf; kiosk/display stays
+  // read-only same as everywhere else, so it doesn't get this button.
+  const createRideBtn = `<button class="nav-item" onclick="openCreateRideModal()"><i class="fa-solid fa-car-side"></i><span>Create ride</span></button>`;
   let items = '';
   if (prof.role === 'admin') {
     items = link('/pages/admin.html', 'fa-gauge', 'Dashboard')
+      + createRideBtn
       + link('/pages/dispatch.html', 'fa-tower-broadcast', 'Dispatch')
       + link('/pages/command.html', 'fa-satellite-dish', 'Command Center')
       + link('/pages/admin.html#settings', 'fa-gear', 'Settings');
-  } else if (prof.role === 'dispatch' || prof.role === 'display') {
+  } else if (prof.role === 'dispatch') {
+    items = link('/pages/dispatch.html', 'fa-tower-broadcast', 'Dispatch')
+      + createRideBtn
+      + link('/pages/command.html', 'fa-satellite-dish', 'Command Center');
+  } else if (prof.role === 'display') {
     items = link('/pages/dispatch.html', 'fa-tower-broadcast', 'Dispatch')
       + link('/pages/command.html', 'fa-satellite-dish', 'Command Center');
   }

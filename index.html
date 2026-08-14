@@ -35,7 +35,7 @@
 
       <div id="step-email">
         <div class="auth-eyebrow">Ride Management · Houston</div>
-        <h1 class="auth-heading">Clock in. <span class="auth-heading-accent">Saddle up.</span></h1>
+        <h1 class="auth-heading"><span class="auth-heading-accent">Saddle up.</span></h1>
         <div class="auth-sub">Sign in to your 8 Second Rides workspace.</div>
         <form onsubmit="handleIdentify(event)">
           <label class="auth-field-label" for="email">Email address</label>
@@ -83,10 +83,13 @@
         </a>
       </div>
     </div>
+
+    <div class="auth-copyright">&copy; <span id="cr-year"></span> Houston Livestock Show and Rodeo</div>
   </div>
 </div>
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
+<script>document.getElementById('cr-year').textContent = new Date().getFullYear();</script>
 </body>
 </html>

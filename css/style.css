@@ -344,6 +344,16 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .auth-input:focus{outline:none;border-color:rgba(245,166,35,0.55);background:rgba(255,255,255,0.07);box-shadow:0 0 0 3px rgba(245,166,35,0.14)}
 .auth-input::placeholder{color:rgba(255,255,255,0.30)}
 
+/* Password show/hide — wrapper carries the field's usual margin-bottom
+   so the input itself can drop its own (auth-input-pw), keeping the
+   eye button's absolute positioning centered on just the input box. */
+.auth-pw-wrap{position:relative;margin-bottom:18px}
+.auth-input-pw{margin-bottom:0;padding-right:44px}
+.auth-pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;
+  background:none;border:none;color:rgba(255,255,255,0.45);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:8px;transition:color .15s,background .15s}
+.auth-pw-toggle:hover{color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.08)}
+
 .auth-btn{width:100%;padding:15px;border-radius:10px;background:#f4f2ee;border:none;color:#0a0d12;
   font-size:var(--fs-sm);font-weight:700;font-family:inherit;letter-spacing:.02em;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:9px;
@@ -429,13 +439,24 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .kiosk-title span{color:var(--orange)}
 .kiosk-sub{color:rgba(255,255,255,0.55);font-size:var(--fs-sm);margin:6px 0 22px}
 .kiosk-dots{display:flex;justify-content:center;gap:10px;margin-bottom:14px;min-height:16px}
-.kiosk-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.30)}
-.kiosk-dot.filled{background:var(--orange);border-color:var(--orange)}
+.kiosk-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.30);transition:border-color .15s}
+.kiosk-dot.filled{background:var(--orange);border-color:var(--orange);box-shadow:0 0 10px rgba(239,118,34,0.75)}
+/* Pops + glows only on the digit you just typed (see kioskRenderDots) —
+   reads as each dot lighting up in sequence rather than a flat fill. */
+.kiosk-dot.just-typed{animation:kioskDotPop .3s ease}
+@keyframes kioskDotPop{
+  0%{transform:scale(0.35);box-shadow:0 0 0 rgba(239,118,34,0)}
+  55%{transform:scale(1.45);box-shadow:0 0 18px rgba(239,118,34,1)}
+  100%{transform:scale(1);box-shadow:0 0 10px rgba(239,118,34,0.75)}
+}
 .kiosk-error{color:var(--red, #ff8a8a);font-size:var(--fs-sm);font-weight:600;margin-bottom:12px}
 .kiosk-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
 .kiosk-key{aspect-ratio:1;border-radius:16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);
-  color:#fff;font-size:24px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace}
+  color:#fff;font-size:24px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;transition:background .12s,border-color .12s,box-shadow .12s}
 .kiosk-key:active{background:rgba(239,118,34,0.25);border-color:var(--orange)}
+/* JS-driven flash (kioskFlashKey) — fires for keyboard entry too, where
+   :active never triggers since there's no real press on the button. */
+.kiosk-key.key-flash{background:rgba(239,118,34,0.35);border-color:var(--orange);box-shadow:0 0 16px rgba(239,118,34,0.55)}
 .kiosk-actions{display:flex;gap:10px}
 .kiosk-actions .btn{flex:1;justify-content:center;padding:14px}
 .kiosk-footer{margin-top:22px;font-size:var(--fs-xs)}

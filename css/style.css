@@ -221,6 +221,15 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 .admin-map{height:300px;position:relative;border-radius:var(--r2);overflow:hidden;transition:height .25s ease}
 .admin-map.expanded{height:50vh}
 .admin-map-expand-btn{position:absolute;top:12px;right:12px;z-index:5}
+.admin-map-demo-btn{background:rgba(4,11,22,0.78)}
+#admin-map-demo-btn.on{background:rgba(192,48,58,0.55);border-color:var(--red);box-shadow:0 0 0 1px rgba(192,48,58,0.35)}
+/* Fixed banner over the whole map while demo mode is on, so synthetic
+   vehicle motion can never be mistaken for real dispatch traffic. */
+.admin-map-demo-banner{position:absolute;left:0;right:0;bottom:0;z-index:6;display:none;align-items:center;justify-content:center;gap:8px;
+  padding:7px 10px;background:repeating-linear-gradient(45deg,#7a1f0a,#7a1f0a 12px,#5c1607 12px,#5c1607 24px);
+  color:#fff;font-family:'DM Mono',monospace;font-weight:700;font-size:var(--fs-xs);letter-spacing:.08em;text-transform:uppercase;
+  animation:demoBannerPulse 1.6s ease-in-out infinite}
+@keyframes demoBannerPulse{0%,100%{opacity:1}50%{opacity:.74}}
 @media(max-width:900px){
   .admin-layout{flex-direction:column}
   .admin-sidenav{position:static;width:100%;flex-direction:row;overflow-x:auto;top:auto}

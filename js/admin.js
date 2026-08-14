@@ -20,6 +20,81 @@ async function refreshAdminMap() {
   live.forEach(r => { if (r.vehicle_id) rideByVehicle[r.vehicle_id] = r; });
   adminMap.refresh(positions || [], rideByVehicle);
 }
+
+// ── Live-map demo mode ───────────────────────────────────────────
+// Lets ops preview what a busy board looks like — some units heading out
+// to a pickup (orange), some already carrying a rider back toward the
+// venue (green) — without waiting for real ride traffic. Entirely
+// synthetic: it feeds fake positions straight into adminMap.refresh() and
+// NEVER calls /rides or /positions/latest, so it can't leak or be
+// confused with real dispatch data. The real 5s poll is paused while
+// demo mode is on and resumes exactly where it left off when it's
+// turned off. A pulsing "DEMO" banner covers the map the whole time —
+// this is dispatch-critical software, so simulated traffic must never
+// be mistakable for a real vehicle.
+const DEMO_WAYPOINTS = [
+  { name: 'Downtown Hyatt',      lat: 29.7530, lng: -95.3630 },
+  { name: 'Hobby Airport',       lat: 29.6454, lng: -95.2789 },
+  { name: 'The Woodlands',       lat: 29.9800, lng: -95.4700 },
+  { name: 'Sugar Land Marriott', lat: 29.6197, lng: -95.6349 },
+  { name: 'IAH Airport',         lat: 29.9902, lng: -95.3368 },
+  { name: 'Pasadena Inn',        lat: 29.6911, lng: -95.2091 },
+];
+let DEMO_VEHICLES = [];
+let adminMapPollTimer = null;
+let mapDemoTimer = null;
+
+function resetDemoVehicles() {
+  DEMO_VEHICLES = DEMO_WAYPOINTS.map((wp, idx) => ({
+    vehicle_id: `demo-${idx + 1}`,
+    label: `DEMO D${idx + 1}`,
+    waypoint: wp,
+    inbound: idx % 2 === 1, // alternate start direction so the board doesn't open with everyone going the same way
+    t: idx / DEMO_WAYPOINTS.length,
+    speed: 0.006 + (idx % 3) * 0.0018,
+  }));
+}
+function demoFrame() {
+  const positions = [], rideByVehicle = {};
+  DEMO_VEHICLES.forEach(v => {
+    v.t += v.speed;
+    if (v.t >= 1) { v.t = 0; v.inbound = !v.inbound; }
+    // Outbound = driving from the venue out to the waypoint to collect a rider.
+    // Inbound = already has the rider, driving from the waypoint back to the venue.
+    const from = v.inbound ? v.waypoint : { lat: NRG_CENTER[1], lng: NRG_CENTER[0] };
+    const to   = v.inbound ? { lat: NRG_CENTER[1], lng: NRG_CENTER[0] } : v.waypoint;
+    const lat = from.lat + (to.lat - from.lat) * v.t;
+    const lng = from.lng + (to.lng - from.lng) * v.t;
+    positions.push({ vehicle_id: v.vehicle_id, lat, lng, label: v.label, stale: false });
+    const status = v.inbound ? 'in_progress' : (v.t < 0.08 || v.t > 0.85 ? 'arrived' : 'en_route');
+    rideByVehicle[v.vehicle_id] = {
+      status, driver_name: v.label,
+      enduser_name: v.inbound ? 'DEMO Guest' : null,
+    };
+  });
+  return { positions, rideByVehicle };
+}
+function toggleMapDemo() { mapDemoTimer ? stopMapDemo() : startMapDemo(); }
+function startMapDemo() {
+  if (mapDemoTimer) return;
+  if (adminMapPollTimer) { clearInterval(adminMapPollTimer); adminMapPollTimer = null; }
+  resetDemoVehicles();
+  document.getElementById('admin-map-demo-banner').style.display = 'flex';
+  const btn = document.getElementById('admin-map-demo-btn');
+  if (btn) { btn.classList.add('on'); btn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop demo'; }
+  const tick = () => { const { positions, rideByVehicle } = demoFrame(); adminMap.refresh(positions, rideByVehicle); };
+  tick();
+  mapDemoTimer = setInterval(tick, 1200);
+}
+function stopMapDemo() {
+  if (!mapDemoTimer) return;
+  clearInterval(mapDemoTimer); mapDemoTimer = null;
+  document.getElementById('admin-map-demo-banner').style.display = 'none';
+  const btn = document.getElementById('admin-map-demo-btn');
+  if (btn) { btn.classList.remove('on'); btn.innerHTML = '<i class="fa-solid fa-play"></i> Demo'; }
+  refreshAdminMap();
+  adminMapPollTimer = setInterval(refreshAdminMap, 5000);
+}
 function toggleAdminMapExpand() {
   const el = document.getElementById('admin-map');
   const btn = document.getElementById('admin-map-expand-btn');
@@ -666,7 +741,7 @@ function initSidenavScrollspy() {
   initSidenavScrollspy();
   refreshVehicleRequests();
   setInterval(refreshVehicleRequests, 15000);
-  adminMap.init().finally(() => { refreshAdminMap(); setInterval(refreshAdminMap, 5000); });
+  adminMap.init().finally(() => { refreshAdminMap(); adminMapPollTimer = setInterval(refreshAdminMap, 5000); });
   // Nav links elsewhere point Settings at admin.html#settings since it's
   // an in-page view, not its own URL — land there directly on load.
   if (window.location.hash === '#settings') setView('settings');

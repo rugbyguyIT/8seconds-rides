@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────
 // Shared live vehicle-position map — one real map (Mapbox GL) with a
 // stylized SVG fallback when no MAPBOX_PUBLIC_TOKEN is configured.
 // Used by Command Center (full-size, with Recenter/Zoom-to-city
@@ -14,7 +14,7 @@
 //   bounds: [[swLng,swLat],[neLng,neLat]], "Zoom to city" target
 //   zoom, recenterZoom,        default 13 / 15
 // }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), startAutoCycle(seconds), stopAutoCycle(), isReal(), isAutoCycling() }
-// ─────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────
 // Three colors, on purpose: gray = not carrying anyone right now, orange
 // (rodeo orange) = en route to a pickup or waiting there, green = has a
 // rider and is headed to the destination. No blue/other states — status
@@ -79,6 +79,12 @@ function createLiveMap(cfg) {
     const fill = state ? state.fill : VEH_IDLE_FILL;
     const tag = state ? state.tag : 'IDLE';
     const stale = !!pos.stale && !ride;
+    // The rider's name shows on the board itself now, not just on hover —
+    // still safe for the kiosk: the server already strips enduser_name
+    // for role='display' (see rides.js ridesList / vehTooltip's comment),
+    // so `ride.enduser_name` simply won't exist there and this line never
+    // renders, no client-side role check needed.
+    const rider = ride && ride.enduser_name;
     return `<g class="veh${stale ? ' veh-stale' : ''}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
       <title>${esc(vehTooltip(pos, ride))}</title>
       ${state && state.ring ? `<circle class="veh-ring" r="9" style="stroke:${fill}"/>` : ''}
@@ -87,6 +93,8 @@ function createLiveMap(cfg) {
       <text x="0" y="-19" text-anchor="middle" class="veh-tag">${esc(vehLabel(pos, ride))}</text>
       <rect x="-28" y="12" width="56" height="13" rx="4" class="veh-tag-bg" style="fill:${fill};opacity:.92"/>
       <text x="0" y="21.5" text-anchor="middle" class="veh-tag" style="font-size:7.5px">${tag}</text>
+      ${rider ? `<rect x="-40" y="27" width="80" height="13" rx="4" class="veh-tag-bg"/>
+      <text x="0" y="36.5" text-anchor="middle" class="veh-tag" style="font-size:7.5px">${esc(rider)}</text>` : ''}
     </g>`;
   }
 
@@ -105,20 +113,27 @@ function createLiveMap(cfg) {
       if (!m) {
         const el = document.createElement('div');
         el.className = 'mb-veh-marker';
-        el.innerHTML = `<div class="mb-veh-label"></div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div>`;
+        el.innerHTML = `<div class="mb-veh-label"></div><div class="mb-veh-dot"></div><div class="mb-veh-tag"></div><div class="mb-veh-rider"></div>`;
         m = new mapboxgl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(realMap);
         mapMarkers[p.vehicle_id] = m;
       } else {
         m.setLngLat([p.lng, p.lat]);
       }
       const el = m.getElement();
-      const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag'), labelEl = el.querySelector('.mb-veh-label');
+      const dot = el.querySelector('.mb-veh-dot'), tagEl = el.querySelector('.mb-veh-tag'),
+            labelEl = el.querySelector('.mb-veh-label'), riderEl = el.querySelector('.mb-veh-rider');
       dot.style.background = fill; dot.classList.toggle('stale', !!p.stale && !ride);
       tagEl.textContent = tag; tagEl.style.background = fill;
-      // Driver's name while they're on a ride, vehicle number otherwise —
-      // never the rider's, and re-checked every refresh since a vehicle
-      // can pick up/drop a ride between polls.
+      // Driver's name while they're on a ride, vehicle number otherwise.
       labelEl.textContent = vehLabel(p, ride);
+      // Rider's name shows on the board itself now too, for admin/dispatch
+      // only — the server already strips enduser_name for role='display'
+      // (see rides.js ridesList / vehTooltip's comment), so this element
+      // just stays empty and hidden for the kiosk with no client-side
+      // role check needed.
+      const rider = ride && ride.enduser_name;
+      riderEl.textContent = rider || '';
+      riderEl.style.display = rider ? '' : 'none';
       // Hover tooltip — re-set every refresh too, same reasoning as the
       // label above. See vehTooltip()'s comment for why no role check
       // is needed here (server already redacts enduser_name for role='display').

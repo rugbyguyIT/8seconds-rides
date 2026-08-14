@@ -21,7 +21,7 @@ async function refreshAdminMap() {
   adminMap.refresh(positions || [], rideByVehicle);
 }
 
-// ── Live-map demo mode ───────────────────────────────────────────
+// ── Live-map demo mode ────────────────────────────────────────────
 // Lets ops preview what a busy board looks like — some units heading out
 // to a pickup (orange), some already carrying a rider back toward the
 // venue (green) — without waiting for real ride traffic. Entirely
@@ -40,6 +40,11 @@ const DEMO_WAYPOINTS = [
   { name: 'IAH Airport',         lat: 29.9902, lng: -95.3368 },
   { name: 'Pasadena Inn',        lat: 29.6911, lng: -95.2091 },
 ];
+// Deliberately silly, obviously-fictional names — never anything that
+// could read as a real driver or guest — so nobody mistakes a demo
+// board for a real one even at a glance.
+const DEMO_DRIVER_NAMES = ['Barth Grooks', 'Chuck Wagonwheel', 'Rusty Buckshot', 'Merle Higgenbottom', 'Duke Featherstone', 'Cleatus Vandermeer'];
+const DEMO_RIDER_NAMES = ['Bo Peep Winslow', 'Delta Champagne', 'Chip Longhorn', 'Sugar Ray Biscuit', 'Trixie Belle Larue', 'Wyatt Dusthorse'];
 let DEMO_VEHICLES = [];
 let adminMapPollTimer = null;
 let mapDemoTimer = null;
@@ -47,7 +52,9 @@ let mapDemoTimer = null;
 function resetDemoVehicles() {
   DEMO_VEHICLES = DEMO_WAYPOINTS.map((wp, idx) => ({
     vehicle_id: `demo-${idx + 1}`,
-    label: `DEMO D${idx + 1}`,
+    label: `Demo Unit ${idx + 1}`,
+    driver_name: DEMO_DRIVER_NAMES[idx % DEMO_DRIVER_NAMES.length],
+    rider_name: DEMO_RIDER_NAMES[idx % DEMO_RIDER_NAMES.length],
     waypoint: wp,
     inbound: idx % 2 === 1, // alternate start direction so the board doesn't open with everyone going the same way
     t: idx / DEMO_WAYPOINTS.length,
@@ -67,9 +74,16 @@ function demoFrame() {
     const lng = from.lng + (to.lng - from.lng) * v.t;
     positions.push({ vehicle_id: v.vehicle_id, lat, lng, label: v.label, stale: false });
     const status = v.inbound ? 'in_progress' : (v.t < 0.08 || v.t > 0.85 ? 'arrived' : 'en_route');
+    // Demo rides carry a driver_name AND (once inbound, "carrying a
+    // rider") an enduser_name, same shape real ride data has — showcases
+    // the map's driver-name + rider-name display, and, same as the real
+    // feed, this doubles as a preview of "kiosk never sees the rider
+    // name" since Command Center's own live view still redacts it
+    // server-side; demo mode just isn't wired into that redaction since
+    // it never touches the server at all.
     rideByVehicle[v.vehicle_id] = {
-      status, driver_name: v.label,
-      enduser_name: v.inbound ? 'DEMO Guest' : null,
+      status, driver_name: v.driver_name,
+      enduser_name: v.inbound ? v.rider_name : null,
     };
   });
   return { positions, rideByVehicle };
@@ -95,20 +109,51 @@ function stopMapDemo() {
   refreshAdminMap();
   adminMapPollTimer = setInterval(refreshAdminMap, 5000);
 }
-function toggleAdminMapExpand() {
+// Three sizes: normal (300px) -> expanded (50vh, inline) -> full screen
+// (the real Fullscreen API on #admin-map itself, so it fills the screen
+// in place rather than popping a new window/tab). Full screen is only
+// reachable from expanded, matching "expand, then offer full screen or
+// back to normal"; exiting full screen (our button, Esc, or the
+// browser's own control) drops back to expanded, not all the way to normal.
+function setAdminMapSize(size) {
   const el = document.getElementById('admin-map');
-  const btn = document.getElementById('admin-map-expand-btn');
-  const expanded = el.classList.toggle('expanded');
-  btn.innerHTML = expanded
-    ? '<i class="fa-solid fa-down-left-and-up-right-to-center"></i> Minimize'
-    : '<i class="fa-solid fa-up-right-and-down-left-from-center"></i> Expand';
+  if (size === 'fullscreen') {
+    el.classList.add('expanded');
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el).catch(() => {});
+  } else {
+    if (document.fullscreenElement === el) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    el.classList.toggle('expanded', size === 'expanded');
+  }
+  renderAdminMapSizeControls();
   // Mapbox doesn't notice its container resizing on its own — nudge it
   // once now and once more after the CSS height transition finishes.
   adminMap.resize();
   setTimeout(() => adminMap.resize(), 260);
 }
+function renderAdminMapSizeControls() {
+  const el = document.getElementById('admin-map');
+  const box = document.getElementById('admin-map-size-controls');
+  if (!el || !box) return;
+  const isFull = document.fullscreenElement === el;
+  const isExpanded = el.classList.contains('expanded');
+  if (isFull) {
+    box.innerHTML = '<button class="btn btn-sm" onclick="setAdminMapSize(\'expanded\')"><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Exit full screen</button>';
+  } else if (isExpanded) {
+    box.innerHTML = '<button class="btn btn-sm" onclick="setAdminMapSize(\'fullscreen\')"><i class="fa-solid fa-expand"></i> Full screen</button>'
+      + '<button class="btn btn-sm" onclick="setAdminMapSize(\'normal\')"><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Back to normal</button>';
+  } else {
+    box.innerHTML = '<button class="btn btn-sm" onclick="setAdminMapSize(\'expanded\')"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Expand</button>';
+  }
+}
+// Catches every way full screen can end — our own button, Esc, or the
+// browser/OS chrome — so the controls and map size never get stuck out
+// of sync with reality.
+document.addEventListener('fullscreenchange', () => {
+  if (document.getElementById('admin-map')) { renderAdminMapSizeControls(); adminMap.resize(); }
+});
 
-// ── View switching (Dashboard / Settings) ───────────────────────
+// ── View switching (Dashboard / Settings) ───────────────────
 const VIEW_TITLES = {
   dashboard: ['Admin', 'Users, fleet, and system settings'],
   settings:  ['Settings', 'App configuration, security audit log, and application logs'],
@@ -171,7 +216,7 @@ async function refresh() {
   renderDrivers();
 }
 
-// ── Drivers & their vehicles ─────────────────────────────────────
+// ── Drivers & their vehicles ─────────────────────────────
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -656,7 +701,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// ── Settings view ────────────────────────────────────────────────
+// ── Settings view ─────────────────────────────
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 
@@ -789,6 +834,7 @@ function initSidenavScrollspy() {
   initSidenavScrollspy();
   refreshVehicleRequests();
   setInterval(refreshVehicleRequests, 15000);
+  renderAdminMapSizeControls();
   adminMap.init().finally(() => { refreshAdminMap(); adminMapPollTimer = setInterval(refreshAdminMap, 5000); });
   // Nav links elsewhere point Settings at admin.html#settings since it's
   // an in-page view, not its own URL — land there directly on load.

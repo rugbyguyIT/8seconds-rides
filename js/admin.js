@@ -21,7 +21,7 @@ async function refreshAdminMap() {
   adminMap.refresh(positions || [], rideByVehicle);
 }
 
-// ── Live-map demo mode ───────────────────────────────────────────
+// ── Live-map demo mode ────────────────────────────────────────────
 // Lets ops preview what a busy board looks like — some units heading out
 // to a pickup (orange), some already carrying a rider back toward the
 // venue (green) — without waiting for real ride traffic. Entirely
@@ -153,7 +153,7 @@ document.addEventListener('fullscreenchange', () => {
   if (document.getElementById('admin-map')) { renderAdminMapSizeControls(); adminMap.resize(); }
 });
 
-// ── View switching (Dashboard / Settings) ───────────────────────
+// ── View switching (Dashboard / Settings) ───────────────────
 const VIEW_TITLES = {
   dashboard: ['Admin', 'Users, fleet, and system settings'],
   settings:  ['Settings', 'App configuration, security audit log, and application logs'],
@@ -216,7 +216,7 @@ async function refresh() {
   renderDrivers();
 }
 
-// ── Drivers & their vehicles ─────────────────────────────────────
+// ── Drivers & their vehicles ───────────────────────
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -499,57 +499,9 @@ function openPhotoModal(kind, id, label) {
   });
 }
 
-// Create-a-ride moved off the dashboard and into a "Create ride" nav
-// button (top of every admin view) — a modal instead of a permanent
-// card, since it's an occasional action, not something that needs to
-// eat dashboard real estate on every visit.
-function rideModalFieldsHtml() {
-  const rs = USERS.filter(u => u.role === 'rider');
-  const riderOptions = rs.length
-    ? rs.map(r => `<option value="${r.id}">${esc(r.full_name)}${r.enduser_class ? ' — ' + esc(r.enduser_class) : ''}</option>`).join('')
-    : '<option value="">No riders yet — create one first</option>';
-  return `
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Rider</label><select class="form-input" name="rider" required>${riderOptions}</select></div>
-      <div class="form-group"><label class="form-label">Party size</label>
-        <select class="form-input" name="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Pickup</label>
-        <select class="form-input" name="pickup">${locationOptions(LOCS, 'Choose a pickup point…')}</select>
-        <input class="form-input" name="pickup_text" placeholder="…or type an address" style="margin-top:6px" /></div>
-      <div class="form-group"><label class="form-label">Drop-off</label>
-        <select class="form-input" name="dropoff">${locationOptions(LOCS, 'Choose a destination…')}</select>
-        <input class="form-input" name="dropoff_text" placeholder="…or type an address" style="margin-top:6px" /></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Date &amp; time (blank = ASAP)</label><input class="form-input" type="datetime-local" name="when" /></div>
-      <div class="form-group"><label class="form-label">Notes for dispatch (optional)</label><input class="form-input" name="notes" placeholder="e.g. meeting the group at valet stand B" /></div>
-    </div>
-    <div class="form-row">
-      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Round trip — driver waits and returns</span>
-        <label class="switch"><input type="checkbox" name="round_trip"><span class="slider"></span></label></div>
-      <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">Wheelchair-accessible vehicle needed</span>
-        <label class="switch"><input type="checkbox" name="ada"><span class="slider"></span></label></div>
-    </div>`;
-}
-async function openCreateRideModal() {
-  const f = await formModal('Create a ride', rideModalFieldsHtml(), { icon: 'fa-car-side', submitLabel: 'Submit request' });
-  if (!f) return;
-  if (!f.rider.value) return toastMsg('Pick a rider first', 'Choose who this ride is for.');
-  const body = {
-    enduser_id: f.rider.value,
-    pickup_location_id: f.pickup.value || null, dropoff_location_id: f.dropoff.value || null,
-    pickup_text: f.pickup.value ? null : f.pickup_text.value || null,
-    dropoff_text: f.dropoff.value ? null : f.dropoff_text.value || null,
-    scheduled_at: f.when.value ? new Date(f.when.value).toISOString() : null,
-    party_size: parseInt(f.party.value, 10), round_trip: f.round_trip.checked,
-    ada_required: f.ada.checked, notes: f.notes.value || null,
-  };
-  const { error } = await api('/rides', 'POST', body);
-  if (error) return toastMsg('Could not create ride', error);
-  toastMsg('Ride created', 'Dispatch has been notified.');
-}
+// Create-a-ride ("Create ride" in the top nav) moved to
+// openCreateRideModal() in rides-ui.js — shared with Dispatch, which
+// needed the same capability (see js/rides-ui.js for why).
 
 // Admin "view as" a rider or handler — mints that user's real session and
 // switches into it, stashing the admin's own token so they can return
@@ -701,7 +653,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// ── Settings view ────────────────────────────────────────────────
+// ── Settings view ───────────────────────────────
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 

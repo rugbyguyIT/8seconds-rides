@@ -33,7 +33,7 @@ function toggleAdminMapExpand() {
   setTimeout(() => adminMap.resize(), 260);
 }
 
-// PLACEHOLDER_36
+// ── View switching (Dashboard / Settings) --------------------------
 const VIEW_TITLES = {
   dashboard: ['Admin', 'Users, fleet, and system settings'],
   settings:  ['Settings', 'App configuration, security audit log, and application logs'],
@@ -96,7 +96,7 @@ async function refresh() {
   renderDrivers();
 }
 
-// PLACEHOLDER_99
+// ── Drivers & their vehicles --------------------------------------
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -533,7 +533,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// PLACEHOLDER_536
+// ── Settings view ---------------------------------------------------
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 

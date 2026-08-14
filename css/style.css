@@ -322,7 +322,7 @@ a{color:var(--orange);text-decoration:none} a:hover{text-decoration:underline}
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
 .auth-eyebrow{font-size:var(--fs-xs);font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,0.42);margin-bottom:14px}
-.auth-heading{font-size:32px;font-weight:800;color:#fff;line-height:1.18;letter-spacing:-.5px;margin-bottom:10px;font-family:'Oswald',sans-serif}
+.auth-heading{font-size:32px;font-weight:800;color:#fff;line-height:1.18;letter-spacing:-.5px;margin-bottom:10px;font-family:'Oswald',sans-serif;text-align:center}
 /* The "pulsing gradient" lives only on this inline span, inside the card
    — physically separate from the ring/orb animation above it. */
 .auth-heading-accent{background:linear-gradient(90deg,#f5a623,#EF7622,#f5a623);background-size:220% auto;

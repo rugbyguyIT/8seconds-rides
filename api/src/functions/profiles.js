@@ -89,6 +89,12 @@ app.http('profilesUpdate', {
       if (body[f] !== undefined) { sets.push(`${f} = $${i++}`); vals.push(body[f]); }
     }
 
+    if (body.email !== undefined) {
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return err('Enter a valid email address');
+      sets.push(`email = $${i++}`); vals.push(email);
+    }
+
     if (body.first_name !== undefined || body.last_name !== undefined) {
       const cur = await query(`SELECT first_name, last_name FROM public.profiles WHERE id = $1`, [id]);
       if (!cur.rows.length) return err('Not found', 404);
@@ -103,13 +109,20 @@ app.http('profilesUpdate', {
     if (body.force_logout) sets.push(`token_version = token_version + 1`);
     if (!sets.length) return err('Nothing to update');
     vals.push(id);
-    const r = await query(`UPDATE public.profiles SET ${sets.join(', ')} WHERE id = $${i} RETURNING ${SAFE}`, vals);
-    if (!r.rows.length) return err('Not found', 404);
-    if (body.force_logout)
-      await logAudit(request, { profile_id: user.sub, email: user.email, action: 'force_logout', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
-    if (body.password)
-      await logAudit(request, { profile_id: user.sub, email: user.email, action: 'password_reset', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
-    return json(r.rows[0]);
+    try {
+      const r = await query(`UPDATE public.profiles SET ${sets.join(', ')} WHERE id = $${i} RETURNING ${SAFE}`, vals);
+      if (!r.rows.length) return err('Not found', 404);
+      if (body.force_logout)
+        await logAudit(request, { profile_id: user.sub, email: user.email, action: 'force_logout', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
+      if (body.password)
+        await logAudit(request, { profile_id: user.sub, email: user.email, action: 'password_reset', detail: `target=${r.rows[0].full_name} <${r.rows[0].email}>` });
+      if (body.email !== undefined)
+        await logAudit(request, { profile_id: user.sub, email: user.email, action: 'email_changed', detail: `target=${r.rows[0].full_name} → ${r.rows[0].email}` });
+      return json(r.rows[0]);
+    } catch (e) {
+      if (e.code === '23505') return err('A user with that email already exists', 409);
+      throw e;
+    }
   },
 });
 

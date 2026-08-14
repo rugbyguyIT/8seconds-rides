@@ -63,7 +63,7 @@ async function refresh() {
         <td><span class="badge ${u.status === 'active' ? 'badge-approved' : 'badge-no'}">${esc(u.status)}</span></td>
         <td style="text-align:right;white-space:nowrap">
           ${['rider', 'handler'].includes(u.role) ? `<button class="btn btn-sm" onclick="impersonate('${u.id}')" title="View as this user"><i class="fa-solid fa-eye"></i></button>` : ''}
-          <button class="btn btn-sm" onclick="renameUser('${u.id}')" title="Edit name"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm" onclick="renameUser('${u.id}')" title="Edit name / email"><i class="fa-solid fa-pen"></i></button>
           <button class="btn btn-sm" onclick="resetPw('${u.id}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
           <button class="btn btn-sm" onclick="forceLogout('${u.id}')" title="Sign out everywhere"><i class="fa-solid fa-right-from-bracket"></i></button>
           <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}','${u.status}')">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button></td></tr>`).join('');
@@ -441,13 +441,18 @@ function openModal(title, fieldsHtml, onSave) {
 async function renameUser(id) {
   const u = USERS.find(x => x.id === id);
   if (!u) return;
-  openModal('Edit name', `
+  openModal('Edit name / email', `
     <div class="form-group"><label class="form-label">First name</label><input class="form-input" name="first_name" value="${esc(u.first_name)}" required /></div>
     <div class="form-group"><label class="form-label">Last name</label><input class="form-input" name="last_name" value="${esc(u.last_name)}" required /></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" name="email" value="${esc(u.email)}" required /></div>
+    <div class="small muted">If they're signed in right now, changing their email won't kick them out — the change won't show up for them until they sign in again.</div>
   `, async (f) => {
-    const { error } = await api('/profiles/' + id, 'PATCH', { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim() });
-    if (error) return toastMsg('Could not rename', error);
-    toastMsg('Name updated', `${f.first_name.value} ${f.last_name.value}`); refresh();
+    const body = { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim() };
+    const newEmail = f.email.value.trim().toLowerCase();
+    if (newEmail !== u.email) body.email = newEmail;
+    const { error } = await api('/profiles/' + id, 'PATCH', body);
+    if (error) return toastMsg('Could not save', error);
+    toastMsg('User updated', `${f.first_name.value} ${f.last_name.value}`); refresh();
   });
 }
 async function createVehicle(ev) {

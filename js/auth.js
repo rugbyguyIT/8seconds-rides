@@ -20,9 +20,10 @@ async function handleIdentify(ev) {
   const raw = document.getElementById('email').value.trim();
   if (!EMAIL_RE.test(raw)) return loginError('Please enter a valid email address.');
   _email = raw.toLowerCase();
-  const btn = document.getElementById('identify-btn'); btn.disabled = true; btn.textContent = 'Checking…';
+  const btn = document.getElementById('identify-btn'); const label = document.getElementById('identify-btn-label');
+  btn.disabled = true; label.textContent = 'Checking…';
   const { data, error } = await api('/auth/identify', 'POST', { email: _email });
-  btn.disabled = false; btn.textContent = 'Continue';
+  btn.disabled = false; label.textContent = 'Continue to operations';
   if (error) return loginError(error);
   if (data.flow === 'otp') {
     const r = await api('/auth/otp/request', 'POST', { email: _email });

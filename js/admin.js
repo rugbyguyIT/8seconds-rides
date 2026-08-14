@@ -66,7 +66,7 @@ async function refresh() {
           <button class="btn btn-sm" onclick="renameUser('${u.id}')" title="Edit name / email"><i class="fa-solid fa-pen"></i></button>
           <button class="btn btn-sm" onclick="resetPw('${u.id}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
           <button class="btn btn-sm" onclick="forceLogout('${u.id}')" title="Sign out everywhere"><i class="fa-solid fa-right-from-bracket"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}','${u.status}')">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button></td></tr>`).join('');
+          <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}','${u.status}')" title="${u.status === 'active' ? 'Deactivate' : 'Activate'}"><i class="fa-solid fa-power-off"></i></button></td></tr>`).join('');
 
   document.getElementById('links').innerHTML = (links || []).filter(l => l.active).map(l =>
     `<tr><td>${esc(l.handler_name)}</td><td><i class="fa-solid fa-arrow-right-long muted"></i></td><td>${esc(l.enduser_name)}</td>

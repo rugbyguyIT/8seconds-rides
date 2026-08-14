@@ -111,7 +111,14 @@
 
     <section id="sec-users" class="admin-section">
       <div class="bento-grid">
-        <div class="card bento-5">
+        <div class="card bento-12" style="padding:8px 14px 4px;overflow-x:auto">
+          <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-users"></i> Users</div>
+          <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Mobile</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody id="users"></tbody></table>
+        </div>
+      </div>
+      <div class="bento-grid">
+        <div class="card bento-12" style="max-width:640px">
           <div class="section-title"><i class="fa-solid fa-user-plus"></i> Create user</div>
           <form onsubmit="createUser(event)">
             <div class="form-row">
@@ -142,11 +149,6 @@
               <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>
             <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-user-plus"></i> Create</button>
           </form>
-        </div>
-        <div class="card bento-7" style="padding:8px 14px 4px;overflow-x:auto">
-          <div class="section-title" style="padding:12px 8px 0"><i class="fa-solid fa-users"></i> Users</div>
-          <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Mobile</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
-          <tbody id="users"></tbody></table>
         </div>
       </div>
     </section>

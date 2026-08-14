@@ -112,14 +112,14 @@ async function openCreateRideModal() {
   if (typeof refresh === 'function') refresh();
 }
 
-// ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // Custom confirm/prompt/form modals — replace the browser's native
 // confirm()/prompt() dialogs (which can't be styled and look jarring
 // against the app's glass UI) with app-styled equivalents. All three
 // are Promise-based so call sites just `await` them like the natives
 // they replace. Shared across every portal since rides-ui.js loads
 // everywhere except the login page.
-// ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 (function injectModalStyles() {
   if (document.getElementById('ui-modal-styles')) return;
   const s = document.createElement('style');

@@ -429,7 +429,7 @@ async function openCreateUserModal() {
     <div class="form-group" id="pw-row" style="display:none"><label class="form-label">Password (dispatch/admin only)</label>
       <input class="form-input" type="text" name="password" autocomplete="new-password" /></div>
     <div class="small muted" style="margin:-6px 0 12px">Command Center's kiosk PIN isn't a user account — set it under Settings → Command Center kiosk.</div>
-    <div class="form-group"><label class="form-label">Photo URL (drivers: required in practice)</label>
+    <div class="form-group"><label class="form-label">Photo URL (Required for all drivers)</label>
       <input class="form-input" name="photo" placeholder="https://…" /></div>
     <div class="toggle-row" style="border-bottom:none"><span class="small" style="font-weight:600">SMS consent on file</span>
       <label class="switch"><input type="checkbox" name="sms"><span class="slider"></span></label></div>

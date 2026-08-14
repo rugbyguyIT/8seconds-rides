@@ -23,7 +23,7 @@ async function handleIdentify(ev) {
   const btn = document.getElementById('identify-btn'); const label = document.getElementById('identify-btn-label');
   btn.disabled = true; label.textContent = 'Checking…';
   const { data, error } = await api('/auth/identify', 'POST', { email: _email });
-  btn.disabled = false; label.textContent = 'Continue to operations';
+  btn.disabled = false; label.textContent = "Let's Ride";
   if (error) return loginError(error);
   if (data.flow === 'otp') {
     const r = await api('/auth/otp/request', 'POST', { email: _email });

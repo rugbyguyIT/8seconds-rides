@@ -21,6 +21,27 @@
   --fs-lg:17px; --fs-xl:20px; --fs-2xl:24px;
   --fw-base:400; --fw-med:500; --fw-bold:600; --fw-xbold:700;
 }
+
+/* ── Modern theme — the warm/neutral alternate skin from
+   8secondsevents.com (data-theme="modern"), same token names so every
+   var()-driven rule below just picks it up. Selector overrides cover
+   the handful of spots (glass cards, topbar, scrollbar) that use
+   hardcoded rgba() instead of a token, same as the events app does. ── */
+[data-theme="modern"] {
+  --bg:#faf9f5; --surface:#faf9f5; --surface2:#efe9de; --surface3:#e6dfd8;
+  --border:#e6dfd8; --border2:#d4cfc8;
+  --text:#181715; --muted:#5a5650; --muted2:#8a857e;
+  --orange:#cc785c; --orange2:#a9583e; --orangeglow:rgba(204,120,92,0.14);
+  --accent:#cc785c; --accent2:#a9583e; --accentglow:rgba(204,120,92,0.14);
+  --blue:#cc785c; --bluebg:rgba(204,120,92,0.10);
+  --card-shadow:0 2px 4px rgba(0,0,0,0.05),0 8px 24px rgba(0,0,0,0.09),0 20px 48px rgba(0,0,0,0.06);
+  --card-shadow-hover:0 4px 8px rgba(0,0,0,0.07),0 16px 40px rgba(0,0,0,0.14);
+}
+[data-theme="modern"] body{font-family:'Inter',system-ui,sans-serif;background:var(--bg)}
+[data-theme="modern"] .card,[data-theme="modern"] .stat-card{background:#efe9de;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #e6dfd8;box-shadow:none}
+[data-theme="modern"] .card:hover,[data-theme="modern"] .stat-card:hover{border-color:#d4cfc8}
+[data-theme="modern"] .topbar{background:#faf9f5;backdrop-filter:none;box-shadow:none;border-bottom:1px solid #e6dfd8}
+[data-theme="modern"] ::-webkit-scrollbar-thumb{background:#e6dfd8}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;min-height:100%;scroll-behavior:smooth;overflow-x:hidden}
 body{

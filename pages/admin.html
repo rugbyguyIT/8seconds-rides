@@ -186,58 +186,67 @@
 
 <!-- ═══════════════════════ SETTINGS VIEW ═══════════════════════ -->
 <div class="view" id="view-settings">
-<div class="bento-grid">
-  <div class="card bento-6">
-    <div class="section-title"><i class="fa-solid fa-car"></i> Vehicle classes</div>
-    <div class="small muted" style="margin-bottom:10px">Each class has a default seat count (excluding the driver) new vehicles inherit, and can have a reference photo (uploaded or AI-generated) shown when a specific vehicle doesn't have its own.</div>
-    <table class="tbl"><tbody id="vclass-rows"></tbody></table>
-    <form onsubmit="createVehicleClass(event)" class="form-row" style="margin-top:14px;align-items:end">
-      <div class="form-group"><label class="form-label">Key</label><input class="form-input" name="class_key" placeholder="limo" required /></div>
-      <div class="form-group"><label class="form-label">Display name</label><input class="form-input" name="class_label" placeholder="Limo" required /></div>
-      <div class="form-group"><label class="form-label">Seats (excl. driver)</label><input class="form-input" type="number" min="1" name="class_capacity" value="6" required /></div>
-      <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-plus"></i> Add class</button>
-    </form>
-  </div>
-  <div class="card bento-6">
-    <div class="section-title"><i class="fa-solid fa-sliders"></i> App settings</div>
-    <form onsubmit="saveAppSettings(event)">
-      <div class="form-group"><label class="form-label">Organization display name</label>
-        <input class="form-input" name="org_display_name" id="s-org-name" /></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Support phone</label><input class="form-input" name="support_phone" id="s-support-phone" placeholder="713 555 0100" /></div>
-        <div class="form-group"><label class="form-label">Support email</label><input class="form-input" type="email" name="support_email" id="s-support-email" placeholder="rides@rodeohouston.com" /></div>
-      </div>
-      <div class="form-group"><label class="form-label">SMS sender label</label>
-        <input class="form-input" name="sms_sender_label" id="s-sms-label" placeholder="8Sec Rides" /></div>
-      <div class="form-group">
-        <label class="form-label">Design</label>
-        <div class="small muted" style="line-height:1.6">Every web portal (Admin, Dispatch, Driver, Handler, Command Center) uses the 8 Second Rides look — orange &amp; navy glass, matching 8secondsevents.com. This isn't configurable since it's the one house style. The rider mobile app has its own dark "Midnight Glass" theme, with an optional high-contrast mode riders can turn on from their Profile menu.</div>
-      </div>
-      <div class="toggle-row"><span class="small" style="font-weight:600">Pilot mode <span class="muted" style="font-weight:400">— internal testing banner shown to all users</span></span>
-        <label class="switch"><input type="checkbox" name="pilot_mode" id="s-pilot-mode"><span class="slider"></span></label></div>
-      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save settings</button>
-      <div class="small muted" id="s-updated" style="margin-top:8px"></div>
-    </form>
-  </div>
+<div class="admin-layout">
+  <nav class="admin-sidenav">
+    <a href="#sec-vclasses" class="admin-sidenav-item"><i class="fa-solid fa-car"></i> Vehicle classes</a>
+    <a href="#sec-appsettings" class="admin-sidenav-item"><i class="fa-solid fa-sliders"></i> App settings</a>
+    <a href="#sec-kiosk" class="admin-sidenav-item"><i class="fa-solid fa-satellite-dish"></i> Kiosk</a>
+    <a href="#sec-security" class="admin-sidenav-item"><i class="fa-solid fa-shield-halved"></i> Security</a>
+    <a href="#sec-logs" class="admin-sidenav-item"><i class="fa-solid fa-bug"></i> Logs</a>
+  </nav>
+  <div class="admin-sections">
 
-  <div class="card bento-6" id="kiosk-card">
-    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <span><i class="fa-solid fa-satellite-dish"></i> Command Center kiosk</span>
-      <a class="btn btn-sm" href="/pages/kiosk.html" target="_blank" rel="noopener" title="Open the kiosk sign-in in a new window">
-        <i class="fa-solid fa-up-right-from-square"></i> Open kiosk</a>
-    </div>
-    <div class="small muted" style="margin-bottom:10px">One shared PIN unlocks <span class="mono">/pages/kiosk.html</span> straight into the Command Center board — no email or user account needed. Anyone with the PIN can sign in there.</div>
-    <div id="kiosk-status" class="small muted" style="margin-bottom:12px">Loading…</div>
-    <form onsubmit="saveKioskPin(event)" id="kiosk-pin-form" style="display:none">
-      <div class="form-group"><label class="form-label" id="kiosk-pin-label">Set kiosk PIN (exactly 8 digits)</label>
-        <input class="form-input" type="text" inputmode="numeric" name="pin" placeholder="e.g. 19321932"
-               pattern="\d{8}" maxlength="8" minlength="8" title="Exactly 8 digits" required /></div>
-      <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-key"></i> Save PIN</button>
-    </form>
-  </div>
+    <section id="sec-vclasses" class="card admin-section">
+      <div class="section-title"><i class="fa-solid fa-car"></i> Vehicle classes</div>
+      <div class="small muted" style="margin-bottom:10px">Each class has a default seat count (excluding the driver) new vehicles inherit, and can have a reference photo (uploaded or AI-generated) shown when a specific vehicle doesn't have its own.</div>
+      <table class="tbl"><tbody id="vclass-rows"></tbody></table>
+      <form onsubmit="createVehicleClass(event)" class="form-row" style="margin-top:14px;align-items:end">
+        <div class="form-group"><label class="form-label">Key</label><input class="form-input" name="class_key" placeholder="limo" required /></div>
+        <div class="form-group"><label class="form-label">Display name</label><input class="form-input" name="class_label" placeholder="Limo" required /></div>
+        <div class="form-group"><label class="form-label">Seats (excl. driver)</label><input class="form-input" type="number" min="1" name="class_capacity" value="6" required /></div>
+        <button class="btn btn-primary" type="submit" style="grid-column:span 2;justify-content:center"><i class="fa-solid fa-plus"></i> Add class</button>
+      </form>
+    </section>
 
-  <div class="bento-12">
-    <div class="card" style="padding:8px 14px 4px;overflow-x:auto">
+    <section id="sec-appsettings" class="card admin-section">
+      <div class="section-title"><i class="fa-solid fa-sliders"></i> App settings</div>
+      <form onsubmit="saveAppSettings(event)">
+        <div class="form-group"><label class="form-label">Organization display name</label>
+          <input class="form-input" name="org_display_name" id="s-org-name" /></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Support phone</label><input class="form-input" name="support_phone" id="s-support-phone" placeholder="713 555 0100" /></div>
+          <div class="form-group"><label class="form-label">Support email</label><input class="form-input" type="email" name="support_email" id="s-support-email" placeholder="rides@rodeohouston.com" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">SMS sender label</label>
+          <input class="form-input" name="sms_sender_label" id="s-sms-label" placeholder="8Sec Rides" /></div>
+        <div class="form-group">
+          <label class="form-label">Design</label>
+          <div class="small muted" style="line-height:1.6">Every web portal (Admin, Dispatch, Driver, Handler, Command Center) uses the 8 Second Rides look — orange &amp; navy glass, matching 8secondsevents.com. This isn't configurable since it's the one house style. The rider mobile app has its own dark "Midnight Glass" theme, with an optional high-contrast mode riders can turn on from their Profile menu.</div>
+        </div>
+        <div class="toggle-row"><span class="small" style="font-weight:600">Pilot mode <span class="muted" style="font-weight:400">— internal testing banner shown to all users</span></span>
+          <label class="switch"><input type="checkbox" name="pilot_mode" id="s-pilot-mode"><span class="slider"></span></label></div>
+        <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save settings</button>
+        <div class="small muted" id="s-updated" style="margin-top:8px"></div>
+      </form>
+    </section>
+
+    <section id="sec-kiosk" class="card admin-section">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span><i class="fa-solid fa-satellite-dish"></i> Command Center kiosk</span>
+        <a class="btn btn-sm" href="/pages/kiosk.html" target="_blank" rel="noopener" title="Open the kiosk sign-in in a new window">
+          <i class="fa-solid fa-up-right-from-square"></i> Open kiosk</a>
+      </div>
+      <div class="small muted" style="margin-bottom:10px">One shared PIN unlocks <span class="mono">/pages/kiosk.html</span> straight into the Command Center board — no email or user account needed. Anyone with the PIN can sign in there.</div>
+      <div id="kiosk-status" class="small muted" style="margin-bottom:12px">Loading…</div>
+      <form onsubmit="saveKioskPin(event)" id="kiosk-pin-form" style="display:none">
+        <div class="form-group"><label class="form-label" id="kiosk-pin-label">Set kiosk PIN (exactly 8 digits)</label>
+          <input class="form-input" type="text" inputmode="numeric" name="pin" placeholder="e.g. 19321932"
+                 pattern="\d{8}" maxlength="8" minlength="8" title="Exactly 8 digits" required /></div>
+        <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-key"></i> Save PIN</button>
+      </form>
+    </section>
+
+    <section id="sec-security" class="card admin-section" style="padding:8px 14px 4px;overflow-x:auto">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 8px 0">
         <div class="section-title" style="padding:0"><i class="fa-solid fa-shield-halved"></i> Security — login audit log</div>
         <button class="btn btn-sm btn-primary" onclick="exportAuditCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
@@ -245,9 +254,9 @@
       <div class="small muted" style="padding:2px 8px 8px">Every sign-in attempt, success or failure — who, when, from what IP.</div>
       <table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>IP</th><th>Detail</th></tr></thead>
       <tbody id="audit-rows"></tbody></table>
-    </div>
+    </section>
 
-    <div class="card" style="padding:8px 14px 4px;overflow-x:auto;margin-top:16px">
+    <section id="sec-logs" class="card admin-section" style="padding:8px 14px 4px;overflow-x:auto">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 8px 0;flex-wrap:wrap;gap:8px">
         <div class="section-title" style="padding:0"><i class="fa-solid fa-bug"></i> Application &amp; error logs</div>
         <div style="display:flex;gap:6px">
@@ -260,7 +269,8 @@
       <div class="small muted" style="padding:2px 8px 8px">Client crashes, unhandled API exceptions, and failed push/SMS sends.</div>
       <table class="tbl"><thead><tr><th>When</th><th>Level</th><th>Event</th><th>Who</th><th>Detail</th></tr></thead>
       <tbody id="applog-rows"></tbody></table>
-    </div>
+    </section>
+
   </div>
 </div>
 </div>

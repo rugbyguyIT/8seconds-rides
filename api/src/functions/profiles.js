@@ -106,7 +106,13 @@ app.http('profilesUpdate', {
     }
 
     if (body.password) { sets.push(`password_hash = $${i++}`); vals.push(await bcrypt.hash(body.password, 10)); }
-    if (body.force_logout) sets.push(`token_version = token_version + 1`);
+    // A role change has to invalidate any session already signed in with
+    // the old role — otherwise their JWT keeps carrying the stale role
+    // (it's baked in at sign-in) and they get confusing "Forbidden"
+    // errors on actions their NEW role should allow, until they happen
+    // to sign out and back in on their own. Bump token_version the same
+    // way force_logout does so this can never linger silently.
+    if (body.force_logout || body.role !== undefined) sets.push(`token_version = token_version + 1`);
     if (!sets.length) return err('Nothing to update');
     vals.push(id);
     try {

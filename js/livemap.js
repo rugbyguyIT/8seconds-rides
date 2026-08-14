@@ -1,4 +1,4 @@
-// ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // Shared live vehicle-position map — one real map (Mapbox GL) with a
 // stylized SVG fallback when no MAPBOX_PUBLIC_TOKEN is configured.
 // Used by Command Center (full-size, with Recenter/Zoom-to-city
@@ -14,7 +14,7 @@
 //   bounds: [[swLng,swLat],[neLng,neLat]], "Zoom to city" target
 //   zoom, recenterZoom,        default 13 / 15
 // }) -> { init(), refresh(positions, rideByVehicle), recenter(), zoomToCity(), resize(), startAutoCycle(seconds), stopAutoCycle(), isReal(), isAutoCycling() }
-// ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // Three colors, on purpose: gray = not carrying anyone right now, orange
 // (rodeo orange) = en route to a pickup or waiting there, green = has a
 // rider and is headed to the destination. No blue/other states — status

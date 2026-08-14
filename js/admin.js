@@ -21,7 +21,7 @@ async function refreshAdminMap() {
   adminMap.refresh(positions || [], rideByVehicle);
 }
 
-// ── Live-map demo mode ────────────────────────────────────────────
+// ── Live-map demo mode ───────────────────────────────────────
 // Lets ops preview what a busy board looks like — some units heading out
 // to a pickup (orange), some already carrying a rider back toward the
 // venue (green) — without waiting for real ride traffic. Entirely
@@ -216,7 +216,7 @@ async function refresh() {
   renderDrivers();
 }
 
-// ── Drivers & their vehicles ─────────────────────────────
+// ── Drivers & their vehicles ─────────────────────────────────
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -701,7 +701,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// ── Settings view ─────────────────────────────
+// ── Settings view ──────────────────────────────────
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 

@@ -1,8 +1,8 @@
-/* ───────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────
    8 SECONDS RIDE MANAGEMENT — stylesheet (8 Seconds design system)
    Tokens + components lifted from 8secondsevents.com css/style.css
    Brand: Orange #EF7622 · Deep Navy #002E5D · Sky #eef2f9
-─────────────────────────────────────────────────── */
+───────────────────────────────────────────────────────────── */
 :root {
   --bg:#eef2f9; --surface:#ffffff; --surface2:#f5f7fb; --surface3:#e8edf5;
   --border:rgba(0,46,93,0.09); --border2:rgba(0,46,93,0.16);

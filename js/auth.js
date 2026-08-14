@@ -54,6 +54,14 @@ async function handlePasswordLogin(ev) {
   window.location.href = data.portal;
 }
 
+function togglePasswordVisibility(btn) {
+  const input = btn.previousElementSibling;
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.innerHTML = showing ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+  btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+}
+
 async function resendOtp() {
   await api('/auth/otp/request', 'POST', { email: _email });
   loginError('A new code is on its way.');

@@ -9,13 +9,30 @@ let pin = '';
 
 function kioskRenderDots() {
   const el = document.getElementById('kiosk-dots');
-  el.innerHTML = Array.from({ length: PIN_LENGTH }, (_, i) =>
-    `<span class="kiosk-dot${i < pin.length ? ' filled' : ''}"></span>`).join('');
+  // Only the just-typed dot gets the "light up" pop animation (rather than
+  // every filled dot replaying it on each keystroke, since the whole list
+  // is rebuilt here) — reads as each digit lighting up as you type it.
+  el.innerHTML = Array.from({ length: PIN_LENGTH }, (_, i) => {
+    if (i >= pin.length) return '<span class="kiosk-dot"></span>';
+    return `<span class="kiosk-dot filled${i === pin.length - 1 ? ' just-typed' : ''}"></span>`;
+  }).join('');
+}
+
+// Flashes the on-screen key that was just typed — covers physical/
+// on-screen-keyboard entry too, where CSS :active never fires since
+// there's no real pointer press on the button itself.
+function kioskFlashKey(d) {
+  const key = document.querySelector(`.kiosk-key[data-key="${d}"]`);
+  if (!key) return;
+  key.classList.remove('key-flash'); void key.offsetWidth; // restart if still mid-flash
+  key.classList.add('key-flash');
+  setTimeout(() => key.classList.remove('key-flash'), 220);
 }
 
 function kioskPress(d) {
   if (pin.length >= PIN_LENGTH) return;
   pin += d;
+  kioskFlashKey(d);
   document.getElementById('kiosk-error').style.display = 'none';
   kioskRenderDots();
   if (pin.length === PIN_LENGTH) kioskSubmit();
@@ -51,7 +68,7 @@ async function kioskSubmit() {
   pad.innerHTML = keys.map(k => {
     if (k === '') return '<span></span>';
     if (k === 'back') return `<button type="button" class="kiosk-key" onclick="kioskBackspace()"><i class="fa-solid fa-delete-left"></i></button>`;
-    return `<button type="button" class="kiosk-key" onclick="kioskPress('${k}')">${k}</button>`;
+    return `<button type="button" class="kiosk-key" data-key="${k}" onclick="kioskPress('${k}')">${k}</button>`;
   }).join('');
   document.addEventListener('keydown', (e) => {
     if (/^[0-9]$/.test(e.key)) kioskPress(e.key);

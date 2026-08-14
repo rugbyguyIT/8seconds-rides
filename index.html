@@ -68,7 +68,10 @@
         <div class="auth-sub">Enter your password to continue</div>
         <form onsubmit="handlePasswordLogin(event)">
           <label class="auth-field-label" for="password">Password</label>
-          <input class="auth-input" type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+          <div class="auth-pw-wrap">
+            <input class="auth-input auth-input-pw" type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+            <button type="button" class="auth-pw-toggle" tabindex="-1" aria-label="Show password" onclick="togglePasswordVisibility(this)"><i class="fa-solid fa-eye"></i></button>
+          </div>
           <button type="submit" class="auth-btn"><span>Sign in</span><i class="fa-solid fa-arrow-right"></i></button>
         </form>
         <div class="auth-footer" style="display:flex;gap:20px;justify-content:center;margin-top:18px">

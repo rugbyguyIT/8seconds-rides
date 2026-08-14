@@ -96,7 +96,8 @@ async function refresh() {
   renderDrivers();
 }
 
-// ── Drivers & their vehicles ────────────────────────────
+// ── Drivers & their vehicles ────────────────────────────────────────
+const driverVehicleUnused = 0; // placeholder to keep line numbers stable during patch (removed below)
 // Admin visibility into who's driving what: driver photo, their
 // vehicle's class/photo/plate, and the HLSR hang tag number. The
 // driver↔vehicle link is persistent (vehicles.driver_id), separate
@@ -533,7 +534,7 @@ function roleChanged(sel) {
   document.getElementById('class-row').style.display = sel.value === 'rider' ? '' : 'none';
 }
 
-// ── Settings view ─────────────────────────────
+// ── Settings view ───────────────────────────────────────────
 let AUDIT_LOGS = [];
 let KIOSK_PROFILE = null;
 

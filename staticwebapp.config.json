@@ -29,6 +29,14 @@
     {
       "route": "/manifest.json",
       "headers": { "Cache-Control": "no-cache, must-revalidate" }
+    },
+    {
+      "route": "/manifest-driver.json",
+      "headers": { "Cache-Control": "no-cache, must-revalidate" }
+    },
+    {
+      "route": "/manifest-admin.json",
+      "headers": { "Cache-Control": "no-cache, must-revalidate" }
     }
   ]
 }

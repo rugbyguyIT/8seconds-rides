@@ -34,8 +34,8 @@
       <div id="login-error" class="auth-error" style="display:none"></div>
 
       <div id="step-email">
-        <div class="auth-eyebrow">Ride Management · Houston</div>
-        <h1 class="auth-heading" style="margin-bottom:26px"><span class="auth-heading-accent">Saddle up.</span></h1>
+        <div class="auth-eyebrow" id="auth-eyebrow">Ride Management · Houston</div>
+        <h1 class="auth-heading" style="margin-bottom:26px" id="auth-heading"><span class="auth-heading-accent">Saddle up.</span></h1>
         <form onsubmit="handleIdentify(event)">
           <label class="auth-field-label" for="email">Email address</label>
           <input class="auth-input" type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
@@ -93,5 +93,27 @@
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
 <script>document.getElementById('cr-year').textContent = new Date().getFullYear();</script>
+<script>
+// Cosmetic only — sign-in itself works identically everywhere (the
+// server sends back a relative-path portal URL, so it lands on the
+// same host you started on). This just greets people by the door they
+// walked in through when they're on a role-branded subdomain like
+// drive.8secondrides.net or admin.8secondrides.net; anyone signing in
+// from the main domain, or from the "wrong" subdomain, still works —
+// they just get the generic "Saddle up" greeting instead.
+(function brandByHostname() {
+  const host = window.location.hostname;
+  const copy = host.startsWith('drive.')
+    ? { eyebrow: 'Driver Sign In · Houston', heading: 'Ready to roll.' }
+    : (host.startsWith('admin.')
+      ? { eyebrow: 'Admin & Dispatch · Houston', heading: 'Welcome back.' }
+      : null);
+  if (!copy) return;
+  const eyebrow = document.getElementById('auth-eyebrow');
+  const heading = document.getElementById('auth-heading');
+  if (eyebrow) eyebrow.textContent = copy.eyebrow;
+  if (heading) heading.innerHTML = `<span class="auth-heading-accent">${copy.heading}</span>`;
+})();
+</script>
 </body>
 </html>
